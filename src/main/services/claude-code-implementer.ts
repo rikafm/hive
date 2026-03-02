@@ -578,6 +578,12 @@ export class ClaudeCodeImplementer implements AgentSdkImplementer {
           continue // No materialization/accumulation needed for partials
         }
 
+        if (msgType === 'rate_limit_event') {
+          log.info('Prompt: rate_limit_event received', {
+            fullMessage: sdkMessage
+          })
+        }
+
         log.info('Prompt: received SDK message', {
           type: msgType,
           index: messageIndex,
