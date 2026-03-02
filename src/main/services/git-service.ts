@@ -1,7 +1,7 @@
 import simpleGit, { SimpleGit, BranchSummary } from 'simple-git'
 import { app } from 'electron'
 import { join, basename, dirname } from 'path'
-import { existsSync, mkdirSync, rmSync, cpSync, writeFileSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, rmSync, cpSync, writeFileSync, unlinkSync, readdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { selectUniqueBreedName, ALL_BREED_NAMES, LEGACY_CITY_NAMES, type BreedType } from './breed-names'
 import { createLogger } from './logger'
@@ -256,45 +256,64 @@ export class GitService {
     projectName: string,
     breedType: BreedType = 'dogs'
   ): Promise<CreateWorktreeResult> {
-    try {
-      // Get existing branches to avoid collisions
-      const existingBranches = await this.getAllBranches()
-      const existingWorktrees = await this.listWorktrees()
-      const existingWorktreeBranches = existingWorktrees.map((w) => w.branch)
+    const MAX_ATTEMPTS = 3
+    // Ensure worktrees directory exists and get base branch once — neither changes between retries
+    const projectWorktreesDir = this.ensureWorktreesDir(projectName)
+    const defaultBranch = await this.getCurrentBranch()
 
-      // Combine all existing names to avoid
-      const existingNames = new Set([...existingBranches, ...existingWorktreeBranches])
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        // Re-fetch on every attempt so retries see the latest state
+        const existingBranches = await this.getAllBranches()
+        const existingWorktrees = await this.listWorktrees()
+        const existingWorktreeBranches = existingWorktrees.map((w) => w.branch)
 
-      // Select a unique breed name
-      const breedName = selectUniqueBreedName(existingNames, breedType)
+        // Also scan the filesystem to catch path collisions from incomplete cleanups
+        let existingDirs: string[] = []
+        try {
+          existingDirs = readdirSync(projectWorktreesDir)
+        } catch {
+          // directory may not exist yet; ignore
+        }
 
-      // Ensure worktrees directory exists
-      const projectWorktreesDir = this.ensureWorktreesDir(projectName)
-      const worktreePath = join(projectWorktreesDir, breedName)
+        // Combine all existing names to avoid
+        const existingNames = new Set([...existingBranches, ...existingWorktreeBranches, ...existingDirs])
 
-      // Branch from whatever is checked out at the root of the repository
-      const defaultBranch = await this.getCurrentBranch()
+        // Select a unique breed name
+        const breedName = selectUniqueBreedName(existingNames, breedType)
+        const worktreePath = join(projectWorktreesDir, breedName)
 
-      // Create the worktree with a new branch
-      await this.git.raw(['worktree', 'add', '-b', breedName, worktreePath, defaultBranch])
+        // Create the worktree with a new branch
+        await this.git.raw(['worktree', 'add', '-b', breedName, worktreePath, defaultBranch])
 
-      return {
-        success: true,
-        name: breedName,
-        branchName: breedName,
-        path: worktreePath
+        return {
+          success: true,
+          name: breedName,
+          branchName: breedName,
+          path: worktreePath
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        if (message.toLowerCase().includes('already exists') && attempt < MAX_ATTEMPTS) {
+          log.warn(`createWorktree: name collision on attempt ${attempt}, retrying`, {
+            projectName,
+            attempt,
+            error: message
+          })
+          continue
+        }
+        log.error(
+          'Failed to create worktree',
+          error instanceof Error ? error : new Error(String(error)),
+          { projectName, repoPath: this.repoPath }
+        )
+        return { success: false, error: message }
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error'
-      log.error(
-        'Failed to create worktree',
-        error instanceof Error ? error : new Error(String(error)),
-        { projectName, repoPath: this.repoPath }
-      )
-      return {
-        success: false,
-        error: message
-      }
+    }
+
+    return {
+      success: false,
+      error: 'Failed to create worktree after 3 attempts due to name collisions'
     }
   }
 
@@ -983,27 +1002,54 @@ export class GitService {
     try {
       // 1. Extract base name (strip -vN suffix)
       const baseName = sourceBranch.replace(/-v\d+$/, '')
+      const projectWorktreesDir = this.ensureWorktreesDir(projectName)
+      const MAX_ATTEMPTS = 3
 
-      // 2. Find next version number
-      const allBranches = await this.getAllBranches()
-      const versionPattern = new RegExp(
-        `^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-v(\\d+)$`
-      )
-      let maxVersion = 1 // means first dup will be v2
-      for (const branch of allBranches) {
-        const match = branch.match(versionPattern)
-        if (match) {
-          maxVersion = Math.max(maxVersion, parseInt(match[1], 10))
+      // 2-4. Find next version number and create worktree, with retry on collision
+      let newBranchName = ''
+      let worktreePath = ''
+      let created = false
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Re-fetch on every attempt so retries see the latest state
+        const allBranches = await this.getAllBranches()
+        const versionPattern = new RegExp(
+          `^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-v(\\d+)$`
+        )
+        let maxVersion = 1 // means first dup will be v2
+        for (const branch of allBranches) {
+          const match = branch.match(versionPattern)
+          if (match) {
+            maxVersion = Math.max(maxVersion, parseInt(match[1], 10))
+          }
+        }
+        newBranchName = `${baseName}-v${maxVersion + 1}`
+        worktreePath = join(projectWorktreesDir, newBranchName)
+
+        try {
+          await this.git.raw(['worktree', 'add', '-b', newBranchName, worktreePath, sourceBranch])
+          created = true
+          break
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error'
+          if (message.toLowerCase().includes('already exists') && attempt < MAX_ATTEMPTS) {
+            log.warn(`duplicateWorktree: name collision on attempt ${attempt}, retrying`, {
+              newBranchName,
+              attempt,
+              error: message
+            })
+            continue
+          }
+          throw error
         }
       }
-      const newBranchName = `${baseName}-v${maxVersion + 1}`
 
-      // 3. Create worktree directory
-      const projectWorktreesDir = this.ensureWorktreesDir(projectName)
-      const worktreePath = join(projectWorktreesDir, newBranchName)
-
-      // 4. Create worktree from source branch
-      await this.git.raw(['worktree', 'add', '-b', newBranchName, worktreePath, sourceBranch])
+      if (!created) {
+        return {
+          success: false,
+          error: 'Failed to duplicate worktree after 3 attempts due to name collisions'
+        }
+      }
 
       // 5. Capture uncommitted state via stash create (non-destructive)
       const sourceGit = simpleGit(sourceWorktreePath)
@@ -1174,28 +1220,65 @@ export class GitService {
         }
       }
 
-      // Get existing branches to avoid name collisions
-      const existingBranches = await this.getAllBranches()
-      const existingWorktrees = await this.listWorktrees()
-      const existingWorktreeBranches = existingWorktrees.map((w) => w.branch)
-      const existingNames = new Set([...existingBranches, ...existingWorktreeBranches])
-
-      // Select a unique breed name
-      const breedName = selectUniqueBreedName(existingNames, breedType)
-
       const projectWorktreesDir = this.ensureWorktreesDir(projectName)
-      const worktreePath = join(projectWorktreesDir, breedName)
+      const MAX_ATTEMPTS = 3
 
       if (prNumber != null) {
-        // Fetch the PR ref directly — works for both fork and same-repo PRs
+        // Fetch the PR ref once — FETCH_HEAD stays valid for subsequent retries
         await this.git.raw(['fetch', 'origin', `pull/${prNumber}/head`])
-        await this.git.raw(['worktree', 'add', '-b', breedName, worktreePath, 'FETCH_HEAD'])
-      } else {
-        // Create a new breed-named branch derived from the selected branch
-        await this.git.raw(['worktree', 'add', '-b', breedName, worktreePath, branchName])
       }
 
-      return { success: true, path: worktreePath, branchName: breedName, name: breedName }
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        // Re-fetch on every attempt so retries see the latest state
+        const existingBranches = await this.getAllBranches()
+        const existingWorktrees = await this.listWorktrees()
+        const existingWorktreeBranches = existingWorktrees.map((w) => w.branch)
+
+        // Also scan the filesystem to catch path collisions from incomplete cleanups
+        let existingDirs: string[] = []
+        try {
+          existingDirs = readdirSync(projectWorktreesDir)
+        } catch {
+          // directory may not exist yet; ignore
+        }
+
+        const existingNames = new Set([
+          ...existingBranches,
+          ...existingWorktreeBranches,
+          ...existingDirs
+        ])
+
+        // Select a unique breed name
+        const breedName = selectUniqueBreedName(existingNames, breedType)
+        const worktreePath = join(projectWorktreesDir, breedName)
+
+        try {
+          if (prNumber != null) {
+            await this.git.raw(['worktree', 'add', '-b', breedName, worktreePath, 'FETCH_HEAD'])
+          } else {
+            // Create a new breed-named branch derived from the selected branch
+            await this.git.raw(['worktree', 'add', '-b', breedName, worktreePath, branchName])
+          }
+          return { success: true, path: worktreePath, branchName: breedName, name: breedName }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error'
+          if (message.toLowerCase().includes('already exists') && attempt < MAX_ATTEMPTS) {
+            log.warn(`createWorktreeFromBranch: name collision on attempt ${attempt}, retrying`, {
+              projectName,
+              branchName,
+              attempt,
+              error: message
+            })
+            continue
+          }
+          throw error
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Failed to create worktree from branch after 3 attempts due to name collisions'
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       log.error(
