@@ -50,6 +50,7 @@ export interface AppSettings {
 
   // Model
   selectedModel: SelectedModel | null
+  selectedModelByProvider: Record<string, SelectedModel>
 
   // Quick Actions
   lastOpenAction: QuickActionType | null
@@ -96,6 +97,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ghosttyFontSize: 14,
   ghosttyPromotionDismissed: false,
   selectedModel: null,
+  selectedModelByProvider: {},
   lastOpenAction: null,
   favoriteModels: [],
   customChromeCommand: '',
@@ -137,7 +139,14 @@ interface SettingsState extends AppSettings {
   closeSettings: () => void
   setActiveSection: (section: string) => void
   updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void
-  setSelectedModel: (model: SelectedModel) => Promise<void>
+  setSelectedModel: (
+    model: SelectedModel,
+    agentSdk?: AppSettings['defaultAgentSdk']
+  ) => Promise<void>
+  setSelectedModelForSdk: (
+    agentSdk: AppSettings['defaultAgentSdk'],
+    model: SelectedModel
+  ) => Promise<void>
   toggleFavoriteModel: (providerID: string, modelID: string) => void
   setModelVariantDefault: (providerID: string, modelID: string, variant: string) => void
   getModelVariantDefault: (providerID: string, modelID: string) => string | undefined
@@ -182,6 +191,7 @@ function extractSettings(state: SettingsState): AppSettings {
     ghosttyFontSize: state.ghosttyFontSize,
     ghosttyPromotionDismissed: state.ghosttyPromotionDismissed,
     selectedModel: state.selectedModel,
+    selectedModelByProvider: state.selectedModelByProvider,
     lastOpenAction: state.lastOpenAction,
     favoriteModels: state.favoriteModels,
     customChromeCommand: state.customChromeCommand,
@@ -229,7 +239,13 @@ export const useSettingsStore = create<SettingsState>()(
         }
       },
 
-      setSelectedModel: async (model: SelectedModel) => {
+      setSelectedModel: async (
+        model: SelectedModel,
+        agentSdk?: AppSettings['defaultAgentSdk']
+      ) => {
+        if (agentSdk) {
+          return get().setSelectedModelForSdk(agentSdk, model)
+        }
         set({ selectedModel: model })
         // Persist to backend (settings DB + opencode service)
         try {
@@ -239,6 +255,29 @@ export const useSettingsStore = create<SettingsState>()(
         }
         // Also save in app settings
         const settings = extractSettings({ ...get(), selectedModel: model } as SettingsState)
+        saveToDatabase(settings)
+      },
+
+      setSelectedModelForSdk: async (
+        agentSdk: AppSettings['defaultAgentSdk'],
+        model: SelectedModel
+      ) => {
+        const updated = { ...get().selectedModelByProvider, [agentSdk]: model }
+        set({ selectedModelByProvider: updated, selectedModel: model })
+        // Push to backend (skip for terminal — no backend service)
+        if (agentSdk !== 'terminal') {
+          try {
+            await window.opencodeOps.setModel({ ...model, agentSdk })
+          } catch (error) {
+            console.error('Failed to persist model selection for SDK:', error)
+          }
+        }
+        // Persist to app settings DB
+        const settings = extractSettings({
+          ...get(),
+          selectedModelByProvider: updated,
+          selectedModel: model
+        } as SettingsState)
         saveToDatabase(settings)
       },
 
@@ -311,6 +350,7 @@ export const useSettingsStore = create<SettingsState>()(
         ghosttyFontSize: state.ghosttyFontSize,
         ghosttyPromotionDismissed: state.ghosttyPromotionDismissed,
         selectedModel: state.selectedModel,
+        selectedModelByProvider: state.selectedModelByProvider,
         lastOpenAction: state.lastOpenAction,
         favoriteModels: state.favoriteModels,
         customChromeCommand: state.customChromeCommand,
