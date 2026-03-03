@@ -5,6 +5,7 @@ import { Dirent, promises as fs, existsSync, statSync } from 'fs'
 import { join, basename, extname, relative } from 'path'
 import { createLogger } from '../services/logger'
 import { getEventBus } from '../../server/event-bus'
+import type { FileEventType } from '../../shared/types/file-tree'
 
 const log = createLogger({ component: 'FileTreeHandlers' })
 
@@ -75,7 +76,6 @@ const watchers = new Map<string, chokidar.FSWatcher>()
 const debounceTimers = new Map<string, NodeJS.Timeout>()
 
 // Pending events accumulated during the debounce window, keyed by worktree path
-type FileEventType = 'add' | 'addDir' | 'unlink' | 'unlinkDir' | 'change'
 const pendingEvents = new Map<string, Array<{ eventType: FileEventType, changedPath: string }>>()
 
 // Main window reference for sending events

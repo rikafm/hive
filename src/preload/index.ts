@@ -546,12 +546,18 @@ export interface FlatFile {
   extension: string | null
 }
 
-// File tree change event type
-export interface FileTreeChangeEvent {
-  worktreePath: string
-  eventType: 'add' | 'addDir' | 'unlink' | 'unlinkDir' | 'change'
+// File tree change event types (batched)
+export type FileEventType = 'add' | 'addDir' | 'unlink' | 'unlinkDir' | 'change'
+
+export interface FileTreeChangeEventItem {
+  eventType: FileEventType
   changedPath: string
   relativePath: string
+}
+
+export interface FileTreeChangeEvent {
+  worktreePath: string
+  events: FileTreeChangeEventItem[]
 }
 
 // Git status types
