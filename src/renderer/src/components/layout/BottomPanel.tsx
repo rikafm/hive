@@ -42,23 +42,31 @@ export function BottomPanel({ terminalSlot, isConnectionMode }: BottomPanelProps
   )
   const customChromeCommand = useSettingsStore((s) => s.customChromeCommand)
 
-  const [detectedUrl, setDetectedUrl] = useState<string | null>(null)
+  // Per-worktree detected URLs so switching worktrees shows the correct port instantly.
+  const [detectedUrls, setDetectedUrls] = useState<Record<string, string>>({})
+  const detectedUrl = selectedWorktreeId ? (detectedUrls[selectedWorktreeId] ?? null) : null
 
   // Scan for dev server URL only while running and not yet found.
-  // Once a URL is detected, scanning stops entirely (zero cost per subsequent version bump).
-  // When runRunning becomes false, the URL resets so the next run can detect a new one.
+  // Once a URL is detected for a worktree, scanning stops (zero cost per subsequent version bump).
+  // When runRunning becomes false, the URL for that worktree is cleared so the next run can detect a new one.
   useEffect(() => {
     if (!selectedWorktreeId || !scriptState?.runRunning) {
-      setDetectedUrl(null)
+      if (selectedWorktreeId) {
+        setDetectedUrls((prev) => {
+          if (!(selectedWorktreeId in prev)) return prev
+          const { [selectedWorktreeId]: _, ...rest } = prev
+          return rest
+        })
+      }
       return
     }
-    // Already found — stop scanning
+    // Already found for this worktree — stop scanning
     if (detectedUrl) return
 
     const output = getOrCreateBuffer(selectedWorktreeId).toRecentArray(80)
     if (!output.length) return
     const url = extractDevServerUrl(output)
-    if (url) setDetectedUrl(url)
+    if (url) setDetectedUrls((prev) => ({ ...prev, [selectedWorktreeId]: url }))
   }, [selectedWorktreeId, scriptState?.runRunning, runOutputVersion, detectedUrl])
 
   const [chromeConfigOpen, setChromeConfigOpen] = useState(false)
