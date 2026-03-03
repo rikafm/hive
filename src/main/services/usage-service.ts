@@ -1,7 +1,8 @@
 import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
+import { execFile } from 'child_process'
 import { join } from 'path'
-import { homedir } from 'os'
+import { homedir, platform } from 'os'
 import { createLogger } from './logger'
 
 const log = createLogger({ component: 'UsageService' })
@@ -23,12 +24,40 @@ interface UsageResult {
   error?: string
 }
 
-async function readAccessToken(): Promise<string | null> {
-  const credsPath = join(homedir(), '.claude', '.credentials.json')
-  if (!existsSync(credsPath)) {
-    log.warn('Credentials file not found')
+/**
+ * Read the OAuth access token from macOS Keychain.
+ * Claude Code v2.x stores credentials in the keychain under
+ * service "Claude Code-credentials".
+ */
+async function readFromKeychain(): Promise<string | null> {
+  if (platform() !== 'darwin') return null
+  try {
+    const stdout = await new Promise<string>((resolve, reject) => {
+      execFile(
+        'security',
+        ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
+        { timeout: 5000 },
+        (error, out) => {
+          if (error) reject(error)
+          else resolve(out.trim())
+        }
+      )
+    })
+    if (!stdout) return null
+    const creds = JSON.parse(stdout)
+    return creds?.claudeAiOauth?.accessToken || null
+  } catch {
     return null
   }
+}
+
+/**
+ * Read the OAuth access token from the legacy credentials file.
+ * Older Claude Code versions stored credentials at ~/.claude/.credentials.json.
+ */
+async function readFromFile(): Promise<string | null> {
+  const credsPath = join(homedir(), '.claude', '.credentials.json')
+  if (!existsSync(credsPath)) return null
   try {
     const raw = await readFile(credsPath, 'utf-8')
     const creds = JSON.parse(raw)
@@ -38,10 +67,20 @@ async function readAccessToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Read the Claude OAuth access token.
+ * Tries macOS Keychain first (v2.x), then falls back to credentials file.
+ */
+async function readAccessToken(): Promise<string | null> {
+  const token = await readFromKeychain()
+  if (token) return token
+  return readFromFile()
+}
+
 export async function fetchClaudeUsage(): Promise<UsageResult> {
   const token = await readAccessToken()
   if (!token) {
-    log.warn('No Claude OAuth access token found in ~/.claude/.credentials.json')
+    log.warn('No Claude OAuth access token found (checked keychain and credentials file)')
     return { success: false, error: 'No access token found' }
   }
 
