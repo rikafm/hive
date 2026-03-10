@@ -52,11 +52,95 @@
       border-radius: 12px;
       overflow: hidden;
       border: 1px solid #222;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .demo:hover .play-overlay {
+      opacity: 1;
     }
 
     .demo img {
       width: 100%;
       display: block;
+    }
+
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .play-icon {
+      width: 72px;
+      height: 72px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .play-icon::after {
+      content: '';
+      display: block;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 14px 0 14px 24px;
+      border-color: transparent transparent transparent #0a0a0a;
+      margin-left: 4px;
+    }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-content {
+      position: relative;
+      max-width: 1200px;
+      width: 95%;
+      cursor: default;
+    }
+
+    .modal-content video {
+      width: 100%;
+      border-radius: 12px;
+      outline: none;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1.5rem;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 4px 8px;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: #fff;
     }
 
     .features {
@@ -163,6 +247,8 @@
     @media (max-width: 600px) {
       .hero h1 { font-size: 1.8rem; }
       .container { padding: 40px 16px; }
+      .play-icon { width: 56px; height: 56px; }
+      .play-icon::after { border-width: 10px 0 10px 18px; }
     }
   </style>
 </head>
@@ -176,8 +262,11 @@
       </p>
     </div>
 
-    <div class="demo">
-      <img src="screenshots/hive-full-demo.gif" alt="Hive demo — orchestrate AI agents across projects" loading="lazy">
+    <div class="demo" onclick="openModal()">
+      <img src="screenshots/hive-full-demo.gif" alt="Hive demo — orchestrate AI agents across projects">
+      <div class="play-overlay">
+        <div class="play-icon"></div>
+      </div>
     </div>
 
     <div class="features">
@@ -215,12 +304,43 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="videoModal" onclick="closeModal(event)">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal(event)">ESC</button>
+      <video id="demoVideo" controls preload="none">
+        <source src="screenshots/hive-full-demo.mp4" type="video/mp4">
+      </video>
+    </div>
+  </div>
+
   <script>
+    function openModal() {
+      var modal = document.getElementById('videoModal');
+      var video = document.getElementById('demoVideo');
+      modal.classList.add('open');
+      video.play();
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(e) {
+      if (e.target.closest('.modal-content') && !e.target.closest('.modal-close')) return;
+      var modal = document.getElementById('videoModal');
+      var video = document.getElementById('demoVideo');
+      modal.classList.remove('open');
+      video.pause();
+      video.currentTime = 0;
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal(e);
+    });
+
     function copyInstall(el) {
       navigator.clipboard.writeText('brew tap morapelker/hive && brew install --cask hive');
       el.classList.add('copied');
       el.querySelector('.copy-hint').textContent = 'copied!';
-      setTimeout(() => {
+      setTimeout(function() {
         el.classList.remove('copied');
         el.querySelector('.copy-hint').textContent = 'click to copy';
       }, 2000);
