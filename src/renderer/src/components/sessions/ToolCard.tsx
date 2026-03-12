@@ -43,6 +43,7 @@ import {
   getLspResultCount
 } from './tools/LspToolView'
 import { ToolCallContextMenu } from './ToolCallContextMenu'
+import { extractCommandText } from '@/lib/tool-input-utils'
 import { useSessionStore } from '@/stores/useSessionStore'
 
 export type ToolStatus = 'pending' | 'running' | 'success' | 'error'
@@ -142,11 +143,7 @@ function getToolIcon(name: string): React.JSX.Element {
   if (lowerName.includes('edit') || lowerName.includes('replace') || lowerName.includes('patch')) {
     return <Pencil className={iconClass} />
   }
-  if (
-    lowerName.includes('bash') ||
-    lowerName.includes('shell') ||
-    lowerName.includes('exec')
-  ) {
+  if (lowerName.includes('bash') || lowerName.includes('shell') || lowerName.includes('exec')) {
     return <Terminal className={iconClass} />
   }
   if (lowerName.includes('glob') || lowerName.includes('find') || lowerName.includes('list')) {
@@ -201,7 +198,7 @@ function getToolLabel(name: string, input: Record<string, unknown>, cwd?: string
 
   // Show command for bash
   if (lowerName.includes('bash') || lowerName.includes('shell') || lowerName.includes('exec')) {
-    const command = (input.command || input.cmd || '') as string
+    const command = extractCommandText(input)
     if (command) {
       // Truncate long commands
       return command.length > 60 ? command.slice(0, 60) + '...' : command
@@ -337,11 +334,7 @@ function getToolRenderer(name: string): React.FC<ToolViewProps> {
   if (lower.includes('write') || lower === 'create') return WriteToolView
   if (lower.includes('edit') || lower.includes('replace') || lower.includes('patch'))
     return EditToolView
-  if (
-    lower.includes('bash') ||
-    lower.includes('shell') ||
-    lower.includes('exec')
-  )
+  if (lower.includes('bash') || lower.includes('shell') || lower.includes('exec'))
     return BashToolView
   if (lower.includes('grep') || lower.includes('search') || lower.includes('rg'))
     return GrepToolView
@@ -380,12 +373,8 @@ function CollapsedContent({
   const lowerName = name.toLowerCase()
 
   // Bash / Shell / Exec
-  if (
-    lowerName.includes('bash') ||
-    lowerName.includes('shell') ||
-    lowerName.includes('exec')
-  ) {
-    const command = (input.command || input.cmd || '') as string
+  if (lowerName.includes('bash') || lowerName.includes('shell') || lowerName.includes('exec')) {
+    const command = extractCommandText(input)
     const truncCmd = command.length > 60 ? command.slice(0, 60) + '...' : command
     return (
       <>
@@ -858,8 +847,9 @@ export const ToolCard = memo(function ToolCard({
   }, [toolUse.startTime, toolUse.endTime])
 
   const lowerName = toolUse.name.toLowerCase()
-  const isBash = lowerName.includes('bash') || lowerName.includes('shell') || lowerName.includes('exec')
-  const command = (toolUse.input.command || toolUse.input.cmd || '') as string
+  const isBash =
+    lowerName.includes('bash') || lowerName.includes('shell') || lowerName.includes('exec')
+  const command = extractCommandText(toolUse.input)
   const hasOutput = !!(toolUse.output || toolUse.error || (isBash && command))
   const isExitPlanMode = lowerName === 'exitplanmode'
 

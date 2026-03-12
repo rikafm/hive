@@ -43,6 +43,7 @@ import { useFileTreeStore } from '@/stores/useFileTreeStore'
 import { mapOpencodeMessagesToSessionViewMessages } from '@/lib/opencode-transcript'
 import { COMPLETION_WORDS, formatCompletionDuration, formatElapsedTimer } from '@/lib/format-utils'
 import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/message-send-times'
+import { buildPlanImplementationPrompt } from '@/lib/proposedPlan'
 import beeIcon from '@/assets/bee.png'
 
 // Stable empty array to avoid creating new references in selectors
@@ -2957,7 +2958,8 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
             } else {
               // Unknown command — send as regular prompt (SDK may handle it)
               const currentMode = useSessionStore.getState().getSessionMode(sessionId)
-              const modePrefix = currentMode === 'plan' && !skipPlanModePrefix ? PLAN_MODE_PREFIX : ''
+              const modePrefix =
+                currentMode === 'plan' && !skipPlanModePrefix ? PLAN_MODE_PREFIX : ''
               const promptMessage = modePrefix + trimmedValue
               lastSentPromptRef.current = promptMessage
               const parts: MessagePart[] = [
@@ -3052,6 +3054,17 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   )
 
   const handlePlanReadyImplement = useCallback(async () => {
+    if (pendingPlan && !isClaudeCode) {
+      const pendingBeforeAction = pendingPlan
+      useSessionStore.getState().clearPendingPlan(sessionId)
+      useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+
+      await useSessionStore.getState().setSessionMode(sessionId, 'build')
+      lastSendMode.set(sessionId, 'build')
+      await handleSend(buildPlanImplementationPrompt(pendingBeforeAction.planContent))
+      return
+    }
+
     // Claude Code sessions must resolve a real pending ExitPlanMode request.
     if (isClaudeCode) {
       if (!worktreePath || !pendingPlan) {
@@ -3122,7 +3135,18 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
   const handlePlanReject = useCallback(
     async (feedback: string) => {
-      if (!worktreePath || !pendingPlan) return
+      if (!pendingPlan) return
+
+      if (!isClaudeCode) {
+        useSessionStore.getState().clearPendingPlan(sessionId)
+        useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+        await useSessionStore.getState().setSessionMode(sessionId, 'plan')
+        lastSendMode.set(sessionId, 'plan')
+        await handleSend(feedback)
+        return
+      }
+
+      if (!worktreePath) return
       userExplicitSendTimes.set(sessionId, Date.now())
       const pendingBeforeAction = pendingPlan
       useSessionStore.getState().clearPendingPlan(sessionId)
@@ -3166,7 +3190,15 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
         useWorktreeStatusStore.getState().setSessionStatus(sessionId, 'plan_ready')
       }
     },
-    [sessionId, worktreePath, pendingPlan, updateStreamingPartsRef, immediateFlush]
+    [
+      sessionId,
+      worktreePath,
+      pendingPlan,
+      isClaudeCode,
+      updateStreamingPartsRef,
+      immediateFlush,
+      handleSend
+    ]
   )
 
   const handlePlanReadyHandoff = useCallback(async () => {
@@ -3724,9 +3756,10 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   // Show the floating Implement FAB when:
   // 1. Claude Code sessions: ExitPlanMode is pending approval.
   // 2. OpenCode sessions: legacy non-blocking plan mode completed.
-  const showPlanReadyImplementFab = isClaudeCode
-    ? !!pendingPlan
-    : lastSendMode.get(sessionId) === 'plan' && !isSending && !isStreaming && !pendingPlan
+  const showPlanReadyImplementFab =
+    isClaudeCode || sessionRecord?.agent_sdk === 'codex'
+      ? !!pendingPlan
+      : lastSendMode.get(sessionId) === 'plan' && !isSending && !isStreaming && !pendingPlan
 
   const retrySecondsRemaining = useMemo(() => {
     if (!sessionRetry?.next) return null

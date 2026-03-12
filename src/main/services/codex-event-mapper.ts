@@ -20,12 +20,18 @@ export type ContentStreamKind =
  */
 export function contentStreamKindFromMethod(method: string): ContentStreamKind | null {
   switch (method) {
-    case 'item/agentMessage/delta': return 'assistant'
-    case 'item/reasoning/textDelta': return 'reasoning'
-    case 'item/reasoning/summaryTextDelta': return 'reasoning_summary'
-    case 'item/commandExecution/outputDelta': return 'command_output'
-    case 'item/fileChange/outputDelta': return 'file_change_output'
-    default: return null
+    case 'item/agentMessage/delta':
+      return 'assistant'
+    case 'item/reasoning/textDelta':
+      return 'reasoning'
+    case 'item/reasoning/summaryTextDelta':
+      return 'reasoning_summary'
+    case 'item/commandExecution/outputDelta':
+      return 'command_output'
+    case 'item/fileChange/outputDelta':
+      return 'file_change_output'
+    default:
+      return null
   }
 }
 
@@ -34,6 +40,57 @@ export function contentStreamKindFromMethod(method: string): ContentStreamKind |
 interface ContentDelta {
   kind: 'assistant' | 'reasoning'
   text: string
+}
+
+function toTextPart(text: string): { part: { type: 'text'; text: string }; delta: string } {
+  return {
+    part: { type: 'text', text },
+    delta: text
+  }
+}
+
+function toReasoningPart(text: string): {
+  part: { type: 'reasoning'; text: string }
+  delta: string
+} {
+  return {
+    part: { type: 'reasoning', text },
+    delta: text
+  }
+}
+
+function normalizeCommandValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+  }
+
+  if (!Array.isArray(value)) return undefined
+
+  const parts = value
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry) => entry.length > 0)
+
+  return parts.length > 0 ? parts.join(' ') : undefined
+}
+
+function normalizeToolInput(
+  item: Record<string, unknown> | undefined,
+  payload: Record<string, unknown> | undefined
+): unknown {
+  const rawInput = item?.input ?? payload?.input
+  const inputRecord = asObject(rawInput)
+  const command =
+    normalizeCommandValue(item?.command) ??
+    normalizeCommandValue(inputRecord?.command) ??
+    normalizeCommandValue(payload?.command)
+
+  if (!command) return rawInput
+
+  return {
+    ...(inputRecord ?? {}),
+    command
+  }
 }
 
 function extractContentDelta(event: CodexManagerEvent): ContentDelta | null {
@@ -99,9 +156,7 @@ function extractTurnCompletedInfo(event: CodexManagerEvent): TurnCompletedInfo {
   const payload = asObject(event.payload)
   const turnObj = asObject(payload?.turn)
 
-  const status = asString(turnObj?.status)
-    ?? asString(payload?.state)
-    ?? 'completed'
+  const status = asString(turnObj?.status) ?? asString(payload?.state) ?? 'completed'
 
   const error = asString(turnObj?.error) ?? asString(payload?.error) ?? event.message
 
@@ -119,36 +174,45 @@ function extractTurnCompletedInfo(event: CodexManagerEvent): TurnCompletedInfo {
 // ── Item payload extraction ───────────────────────────────────────
 
 interface ItemInfo {
+  itemType?: string
   toolName: string
   callId: string
   status?: string
   output?: unknown
+  input?: unknown
 }
 
 function extractItemInfo(event: CodexManagerEvent): ItemInfo {
   const payload = asObject(event.payload)
   const item = asObject(payload?.item)
+  const itemType = asString(item?.type) ?? asString(payload?.type)
 
-  const toolName = asString(item?.toolName)
-    ?? asString(item?.name)
-    ?? asString(item?.type)
-    ?? asString(payload?.toolName)
-    ?? 'unknown'
+  const toolName =
+    asString(item?.toolName) ??
+    asString(item?.name) ??
+    asString(item?.type) ??
+    asString(payload?.toolName) ??
+    'unknown'
 
-  const callId = asString(item?.id)
-    ?? asString(event.itemId)
-    ?? asString(payload?.itemId)
-    ?? ''
+  const callId = asString(item?.id) ?? asString(event.itemId) ?? asString(payload?.itemId) ?? ''
 
   const status = asString(item?.status) ?? asString(payload?.status)
-  const output = item?.output ?? payload?.output
+  const output =
+    item?.output ?? item?.aggregatedOutput ?? payload?.output ?? payload?.aggregatedOutput
+  const input = normalizeToolInput(item, payload)
 
   return {
+    ...(itemType ? { itemType } : {}),
     toolName,
     callId,
     ...(status ? { status } : {}),
-    ...(output !== undefined ? { output } : {})
+    ...(output !== undefined ? { output } : {}),
+    ...(input !== undefined ? { input } : {})
   }
+}
+
+function isToolLifecycleItem(item: ItemInfo): boolean {
+  return item.itemType === 'commandExecution' || item.itemType === 'fileChange'
 }
 
 // ── Task payload extraction ───────────────────────────────────────
@@ -165,9 +229,7 @@ function extractTaskInfo(event: CodexManagerEvent): TaskInfo {
   const task = asObject(payload?.task)
 
   const taskId = asString(task?.id) ?? asString(payload?.taskId) ?? ''
-  const status = asString(task?.status)
-    ?? asString(payload?.status)
-    ?? 'unknown'
+  const status = asString(task?.status) ?? asString(payload?.status) ?? 'unknown'
   const message = asString(task?.message) ?? asString(payload?.message) ?? event.message
   const progress = asNumber(task?.progress) ?? asNumber(payload?.progress)
 
@@ -200,15 +262,16 @@ export function mapCodexEventToStreamEvents(
     const delta = extractContentDelta(event)
     if (!delta) return []
 
-    return [{
-      type: 'message.part.updated',
-      sessionId: hiveSessionId,
-      data: {
-        type: streamKind === 'reasoning' || streamKind === 'reasoning_summary'
-          ? 'reasoning' : 'text',
-        text: delta.text
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data:
+          streamKind === 'reasoning' || streamKind === 'reasoning_summary'
+            ? toReasoningPart(delta.text)
+            : toTextPart(delta.text)
       }
-    }]
+    ]
   }
 
   // ── Plan deltas ───────────────────────────────────────────────
@@ -216,21 +279,25 @@ export function mapCodexEventToStreamEvents(
     const delta = extractContentDelta(event)
     if (!delta) return []
 
-    return [{
-      type: 'message.part.updated',
-      sessionId: hiveSessionId,
-      data: { type: 'text', text: delta.text }
-    }]
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data: toTextPart(delta.text)
+      }
+    ]
   }
 
   // ── Turn started ──────────────────────────────────────────────
   if (method === 'turn/started') {
-    return [{
-      type: 'session.status',
-      sessionId: hiveSessionId,
-      data: { status: { type: 'busy' } },
-      statusPayload: { type: 'busy' }
-    }]
+    return [
+      {
+        type: 'session.status',
+        sessionId: hiveSessionId,
+        data: { status: { type: 'busy' } },
+        statusPayload: { type: 'busy' }
+      }
+    ]
   }
 
   // ── Turn completed ────────────────────────────────────────────
@@ -272,62 +339,103 @@ export function mapCodexEventToStreamEvents(
   // ── Item started (tool/command use) ──────────────────────────
   if (method === 'item.started' || method === 'item/started') {
     const item = extractItemInfo(event)
-    return [{
-      type: 'message.part.updated',
-      sessionId: hiveSessionId,
-      data: { type: 'tool_use', toolName: item.toolName, callID: item.callId }
-    }]
+    if (!isToolLifecycleItem(item)) return []
+
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data: {
+          part: {
+            type: 'tool',
+            callID: item.callId,
+            tool: item.toolName,
+            state: {
+              status: 'running',
+              ...(item.input !== undefined ? { input: item.input } : {})
+            }
+          }
+        }
+      }
+    ]
   }
 
   // ── Item updated ──────────��──────────────────────────────────
   if (method === 'item.updated' || method === 'item/updated') {
     const item = extractItemInfo(event)
-    return [{
-      type: 'message.part.updated',
-      sessionId: hiveSessionId,
-      data: {
-        type: 'tool_use',
-        toolName: item.toolName,
-        callID: item.callId,
-        ...(item.status ? { status: item.status } : {})
+    if (!isToolLifecycleItem(item)) return []
+
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data: {
+          part: {
+            type: 'tool',
+            callID: item.callId,
+            tool: item.toolName,
+            state: {
+              status: item.status === 'failed' ? 'error' : 'running',
+              ...(item.input !== undefined ? { input: item.input } : {})
+            }
+          }
+        }
       }
-    }]
+    ]
   }
 
   // ── Item completed ───────────────────────────────────────────
   if (method === 'item.completed' || method === 'item/completed') {
     const item = extractItemInfo(event)
-    return [{
-      type: 'message.part.updated',
-      sessionId: hiveSessionId,
-      data: {
-        type: 'tool_result',
-        toolName: item.toolName,
-        callID: item.callId,
-        status: item.status ?? 'completed',
-        ...(item.output !== undefined ? { output: item.output } : {})
+    if (!isToolLifecycleItem(item)) return []
+
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data: {
+          part: {
+            type: 'tool',
+            callID: item.callId,
+            tool: item.toolName,
+            state: {
+              status: item.status === 'failed' ? 'error' : 'completed',
+              ...(item.output !== undefined && item.status !== 'failed'
+                ? { output: item.output }
+                : {}),
+              ...(item.output !== undefined && item.status === 'failed'
+                ? { error: item.output }
+                : {})
+            }
+          }
+        }
       }
-    }]
+    ]
   }
 
   // ── Task lifecycle ───────────────────────────────────────────
   if (
-    method === 'task.started' || method === 'task/started' ||
-    method === 'task.progress' || method === 'task/progress' ||
-    method === 'task.completed' || method === 'task/completed'
+    method === 'task.started' ||
+    method === 'task/started' ||
+    method === 'task.progress' ||
+    method === 'task/progress' ||
+    method === 'task.completed' ||
+    method === 'task/completed'
   ) {
     const task = extractTaskInfo(event)
-    return [{
-      type: 'message.part.updated',
-      sessionId: hiveSessionId,
-      data: {
-        type: 'task',
-        taskId: task.taskId,
-        status: task.status,
-        ...(task.message ? { message: task.message } : {}),
-        ...(task.progress !== undefined ? { progress: task.progress } : {})
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data: {
+          type: 'task',
+          taskId: task.taskId,
+          status: task.status,
+          ...(task.message ? { message: task.message } : {}),
+          ...(task.progress !== undefined ? { progress: task.progress } : {})
+        }
       }
-    }]
+    ]
   }
 
   // ── Session state changed ────────────────────────────────────
@@ -336,34 +444,41 @@ export function mapCodexEventToStreamEvents(
     const state = asString(payload?.state)
 
     if (state === 'error') {
-      const reason = asString(payload?.reason)
-        ?? asString(payload?.error)
-        ?? event.message
-        ?? 'Session entered error state'
-      return [{
-        type: 'session.error',
-        sessionId: hiveSessionId,
-        data: { error: reason }
-      }]
+      const reason =
+        asString(payload?.reason) ??
+        asString(payload?.error) ??
+        event.message ??
+        'Session entered error state'
+      return [
+        {
+          type: 'session.error',
+          sessionId: hiveSessionId,
+          data: { error: reason }
+        }
+      ]
     }
 
     // For running/ready states, emit status
     if (state === 'running') {
-      return [{
-        type: 'session.status',
-        sessionId: hiveSessionId,
-        data: { status: { type: 'busy' } },
-        statusPayload: { type: 'busy' }
-      }]
+      return [
+        {
+          type: 'session.status',
+          sessionId: hiveSessionId,
+          data: { status: { type: 'busy' } },
+          statusPayload: { type: 'busy' }
+        }
+      ]
     }
 
     if (state === 'ready') {
-      return [{
-        type: 'session.status',
-        sessionId: hiveSessionId,
-        data: { status: { type: 'idle' } },
-        statusPayload: { type: 'idle' }
-      }]
+      return [
+        {
+          type: 'session.status',
+          sessionId: hiveSessionId,
+          data: { status: { type: 'idle' } },
+          statusPayload: { type: 'idle' }
+        }
+      ]
     }
 
     return []
@@ -372,15 +487,15 @@ export function mapCodexEventToStreamEvents(
   // ── Runtime error ────────────────────────────────────────────
   if (method === 'runtime.error' || method === 'runtime/error') {
     const payload = asObject(event.payload)
-    const message = asString(payload?.message)
-      ?? asString(payload?.error)
-      ?? event.message
-      ?? 'Runtime error'
-    return [{
-      type: 'session.error',
-      sessionId: hiveSessionId,
-      data: { error: message }
-    }]
+    const message =
+      asString(payload?.message) ?? asString(payload?.error) ?? event.message ?? 'Runtime error'
+    return [
+      {
+        type: 'session.error',
+        sessionId: hiveSessionId,
+        data: { error: message }
+      }
+    ]
   }
 
   // ── Manager-level error events (process crashes only) ────────
@@ -390,11 +505,13 @@ export function mapCodexEventToStreamEvents(
     // 'process/stderr' and silently dropped below.
     if (event.method === 'process/error') {
       const message = event.message ?? 'Unknown error'
-      return [{
-        type: 'session.error',
-        sessionId: hiveSessionId,
-        data: { error: message }
-      }]
+      return [
+        {
+          type: 'session.error',
+          sessionId: hiveSessionId,
+          data: { error: message }
+        }
+      ]
     }
     return []
   }

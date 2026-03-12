@@ -38,7 +38,10 @@ vi.mock('../../../src/main/services/codex-app-server-manager', () => {
   }
 })
 
-import { CodexImplementer, type CodexSessionState } from '../../../src/main/services/codex-implementer'
+import {
+  CodexImplementer,
+  type CodexSessionState
+} from '../../../src/main/services/codex-implementer'
 
 describe('CodexImplementer.prompt()', () => {
   let impl: CodexImplementer
@@ -64,6 +67,8 @@ describe('CodexImplementer.prompt()', () => {
       worktreePath: '/test/project',
       status: 'ready',
       messages: [],
+      revertMessageID: null,
+      revertDiff: null,
       ...overrides
     }
     impl.getSessions().set('/test/project::thread-1', session)
@@ -208,11 +213,11 @@ describe('CodexImplementer.prompt()', () => {
       .map((c: any[]) => c[1])
 
     const textEvents = streamCalls.filter(
-      (e: any) => e.type === 'message.part.updated' && e.data?.type === 'text'
+      (e: any) => e.type === 'message.part.updated' && e.data?.part?.type === 'text'
     )
 
     expect(textEvents.length).toBeGreaterThanOrEqual(1)
-    expect(textEvents[0].data.text).toBe('Hello')
+    expect(textEvents[0].data.part.text).toBe('Hello')
   })
 
   it('ignores events for other threads', async () => {
@@ -248,7 +253,7 @@ describe('CodexImplementer.prompt()', () => {
       .map((c: any[]) => c[1])
 
     const textEvents = streamCalls.filter(
-      (e: any) => e.type === 'message.part.updated' && e.data?.type === 'text'
+      (e: any) => e.type === 'message.part.updated' && e.data?.part?.type === 'text'
     )
 
     // The "Wrong thread" event should not have been forwarded
@@ -537,9 +542,7 @@ describe('CodexImplementer.prompt()', () => {
   // ── Session not found ───────────────────────────────────────
 
   it('throws if session not found', async () => {
-    await expect(
-      impl.prompt('/unknown', 'thread-x', 'hello')
-    ).rejects.toThrow('session not found')
+    await expect(impl.prompt('/unknown', 'thread-x', 'hello')).rejects.toThrow('session not found')
   })
 
   // ── Empty text ──────────────────────────────────────────────
@@ -665,6 +668,97 @@ describe('CodexImplementer.prompt()', () => {
         model: expect.any(String),
         interactionMode: 'default'
       })
+    })
+
+    it('emits plan.ready when a plan-shaped task_complete arrives in plan mode', async () => {
+      seedSession()
+
+      const mockDbService = {
+        getSession: vi.fn().mockReturnValue({ id: 'hive-session-1', mode: 'plan' })
+      } as any
+      impl.setDatabaseService(mockDbService)
+
+      simulateManagerEvents([
+        {
+          id: 'e-plan',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'codex/event/task_complete',
+          payload: {
+            msg: {
+              turn_id: 'turn-1',
+              last_agent_message:
+                'Plan\n\n1. Add the function\n2. Add a test\n\nConfirm and I will implement it.'
+            }
+          }
+        },
+        {
+          id: 'e-done',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'turn/completed',
+          payload: { turn: { id: 'turn-1', status: 'completed' } }
+        }
+      ])
+
+      await impl.prompt('/test/project', 'thread-1', 'Plan something')
+
+      const streamCalls = mockWindow.webContents.send.mock.calls
+        .filter((c: any[]) => c[0] === 'opencode:stream')
+        .map((c: any[]) => c[1])
+
+      const planReadyEvent = streamCalls.find((e: any) => e.type === 'plan.ready')
+      expect(planReadyEvent).toBeDefined()
+      expect(planReadyEvent.data.plan).toContain('1. Add the function')
+    })
+
+    it('does not emit plan.ready for a clarifying question in plan mode', async () => {
+      seedSession()
+
+      const mockDbService = {
+        getSession: vi.fn().mockReturnValue({ id: 'hive-session-1', mode: 'plan' })
+      } as any
+      impl.setDatabaseService(mockDbService)
+
+      simulateManagerEvents([
+        {
+          id: 'e-plan',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'codex/event/task_complete',
+          payload: {
+            msg: {
+              turn_id: 'turn-1',
+              last_agent_message:
+                'Where should I add it?\n\n- New module\n- Existing utils\n\nConfirm your preference.'
+            }
+          }
+        },
+        {
+          id: 'e-done',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'turn/completed',
+          payload: { turn: { id: 'turn-1', status: 'completed' } }
+        }
+      ])
+
+      await impl.prompt('/test/project', 'thread-1', 'Plan something')
+
+      const streamCalls = mockWindow.webContents.send.mock.calls
+        .filter((c: any[]) => c[0] === 'opencode:stream')
+        .map((c: any[]) => c[1])
+
+      const planReadyEvent = streamCalls.find((e: any) => e.type === 'plan.ready')
+      expect(planReadyEvent).toBeUndefined()
     })
   })
 

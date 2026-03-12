@@ -108,7 +108,19 @@ describe('Session 12: Plan-ready implement FAB', () => {
       )
 
       expect(source).toContain("setSessionMode(sessionId, 'build')")
-      expect(source).toContain("handleSend('Implement')")
+      expect(source).toContain('buildPlanImplementationPrompt')
+    })
+
+    test('visibility uses pendingPlan for codex pending-review flow', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const source = fs.readFileSync(
+        path.resolve(__dirname, '../../../src/renderer/src/components/sessions/SessionView.tsx'),
+        'utf-8'
+      )
+
+      expect(source).toContain("sessionRecord?.agent_sdk === 'codex'")
+      expect(source).toContain('? !!pendingPlan')
     })
 
     test('Handoff action opens a new build-mode session and sends handoff prompt', async () => {

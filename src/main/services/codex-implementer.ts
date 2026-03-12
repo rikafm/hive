@@ -9,10 +9,7 @@ import {
   resolveCodexModelSlug
 } from './codex-models'
 import { createLogger } from './logger'
-import {
-  CodexAppServerManager,
-  type CodexManagerEvent
-} from './codex-app-server-manager'
+import { CodexAppServerManager, type CodexManagerEvent } from './codex-app-server-manager'
 import { mapCodexEventToStreamEvents, contentStreamKindFromMethod } from './codex-event-mapper'
 import { asObject, asString } from './codex-utils'
 import type { DatabaseService } from '../db/database'
@@ -37,6 +34,27 @@ interface PendingHitlEntry {
   threadId: string
   hiveSessionId: string
   worktreePath: string
+}
+
+interface CodexPermissionRequest {
+  id: string
+  sessionID: string
+  permission: string
+  patterns: string[]
+  metadata: Record<string, unknown>
+  always: string[]
+}
+
+function looksLikeCodexProposedPlan(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed) return false
+
+  const firstLine = trimmed.split(/\r?\n/, 1)[0]?.trim() ?? ''
+  const hasPlanHeading = /^(plan(?:\s+[^\n]+)?|#{1,6}\s+[^\n]+)$/i.test(firstLine)
+  const hasSteps = /(^|\n)\s*(?:[-*]|\d+\.)\s+\S/m.test(trimmed)
+  const startsWithQuestion = /^[^\n]*\?\s*(?:\n|$)/.test(trimmed)
+
+  return hasPlanHeading && hasSteps && !startsWithQuestion
 }
 
 export class CodexImplementer implements AgentSdkImplementer {
@@ -115,15 +133,16 @@ export class CodexImplementer implements AgentSdkImplementer {
 
       const payload = asObject(event.payload)
       this.sendToRenderer('opencode:stream', {
-        type: 'request.opened',
+        type: 'permission.asked',
         sessionId: targetSession.hiveSessionId,
-        data: {
+        data: this.toPermissionRequest(
           requestId,
-          method: event.method,
+          targetSession.hiveSessionId,
+          event.method,
           payload,
-          turnId: event.turnId,
-          itemId: event.itemId
-        }
+          event.turnId,
+          event.itemId
+        )
       })
       return
     }
@@ -245,13 +264,16 @@ export class CodexImplementer implements AgentSdkImplementer {
       this.sessions.set(newKey, state)
 
       log.info('Reconnected via thread resume', { worktreePath, agentSessionId, threadId })
-      return { success: true, sessionStatus: this.statusToHive(state.status), revertMessageID: null }
+      return {
+        success: true,
+        sessionStatus: this.statusToHive(state.status),
+        revertMessageID: null
+      }
     } catch (error) {
-      log.error(
-        'Reconnect failed',
-        error instanceof Error ? error : new Error(String(error)),
-        { worktreePath, agentSessionId }
-      )
+      log.error('Reconnect failed', error instanceof Error ? error : new Error(String(error)), {
+        worktreePath,
+        agentSessionId
+      })
       return { success: false }
     }
   }
@@ -307,9 +329,7 @@ export class CodexImplementer implements AgentSdkImplementer {
     const key = this.getSessionKey(worktreePath, agentSessionId)
     const session = this.sessions.get(key)
     if (!session) {
-      throw new Error(
-        `Prompt failed: session not found for ${worktreePath} / ${agentSessionId}`
-      )
+      throw new Error(`Prompt failed: session not found for ${worktreePath} / ${agentSessionId}`)
     }
 
     // Extract text from message
@@ -348,8 +368,10 @@ export class CodexImplementer implements AgentSdkImplementer {
     })
 
     // Set up event listener for streaming
+    let interactionMode: 'default' | 'plan' = 'default'
     let assistantText = ''
     let reasoningText = ''
+    let pendingPlanText: string | null = null
     let turnCompleted = false
     let turnFailed = false
 
@@ -366,15 +388,37 @@ export class CodexImplementer implements AgentSdkImplementer {
       const streamKind = contentStreamKindFromMethod(event.method)
       if (streamKind) {
         const payload = event.payload as Record<string, unknown> | undefined
-        const deltaText = event.textDelta
-          ?? asString(asObject(payload)?.delta)
-          ?? asString(asObject(payload)?.text)
-          ?? ''
+        const deltaText =
+          event.textDelta ??
+          asString(asObject(payload)?.delta) ??
+          asString(asObject(payload)?.text) ??
+          ''
 
         if (streamKind === 'reasoning' || streamKind === 'reasoning_summary') {
           reasoningText += deltaText
         } else {
           assistantText += deltaText
+        }
+      }
+
+      if (interactionMode === 'plan') {
+        if (event.method === 'codex/event/task_complete') {
+          const payload = asObject(event.payload)
+          const msg = asObject(payload?.msg)
+          const planText = asString(msg?.last_agent_message)
+          if (planText && looksLikeCodexProposedPlan(planText)) {
+            pendingPlanText = planText
+          }
+        }
+
+        if (event.method === 'item/completed') {
+          const payload = asObject(event.payload)
+          const item = asObject(payload?.item)
+          const itemType = asString(item?.type)?.toLowerCase()
+          const planText = asString(item?.text)
+          if (itemType === 'agentmessage' && planText && looksLikeCodexProposedPlan(planText)) {
+            pendingPlanText = planText
+          }
         }
       }
 
@@ -396,7 +440,6 @@ export class CodexImplementer implements AgentSdkImplementer {
       const model = resolveCodexModelSlug(modelOverride?.modelID ?? this.selectedModel)
 
       // Determine interaction mode from DB session mode (same pattern as claude-code-implementer)
-      let interactionMode: 'default' | 'plan' = 'default'
       if (this.dbService) {
         try {
           const dbSession = this.dbService.getSession(session.hiveSessionId)
@@ -440,6 +483,20 @@ export class CodexImplementer implements AgentSdkImplementer {
           role: 'assistant',
           parts: assistantParts,
           timestamp: new Date().toISOString()
+        })
+      }
+
+      if (interactionMode === 'plan' && pendingPlanText) {
+        const requestId = `codex-plan:${session.threadId}`
+        this.sendToRenderer('opencode:stream', {
+          type: 'plan.ready',
+          sessionId: session.hiveSessionId,
+          data: {
+            id: requestId,
+            requestId,
+            plan: pendingPlanText,
+            toolUseID: ''
+          }
         })
       }
 
@@ -651,7 +708,7 @@ export class CodexImplementer implements AgentSdkImplementer {
     this.pendingApprovalSessions.delete(requestId)
 
     this.sendToRenderer('opencode:stream', {
-      type: 'request.resolved',
+      type: 'permission.replied',
       sessionId: pending.hiveSessionId,
       data: { requestId, id: requestId, decision }
     })
@@ -663,16 +720,75 @@ export class CodexImplementer implements AgentSdkImplementer {
     for (const session of this.sessions.values()) {
       const approvals = this.manager.getPendingApprovals(session.threadId)
       for (const approval of approvals) {
+        const payload = asObject(approval.payload)
         result.push({
-          requestId: approval.requestId,
-          method: approval.method,
-          threadId: approval.threadId,
-          turnId: approval.turnId,
-          itemId: approval.itemId
+          ...this.toPermissionRequest(
+            approval.requestId,
+            session.hiveSessionId,
+            approval.method,
+            payload,
+            approval.turnId,
+            approval.itemId
+          )
         })
       }
     }
     return result
+  }
+
+  private toPermissionRequest(
+    requestId: string,
+    hiveSessionId: string,
+    method: string,
+    payload: Record<string, unknown> | undefined,
+    turnId?: string,
+    itemId?: string
+  ): CodexPermissionRequest {
+    const permission = this.permissionFromApprovalMethod(method)
+    const patterns = this.patternsFromApprovalPayload(method, payload)
+
+    return {
+      id: requestId,
+      sessionID: hiveSessionId,
+      permission,
+      patterns,
+      metadata: {
+        method,
+        ...(payload ? { payload } : {}),
+        ...(turnId ? { turnId } : {}),
+        ...(itemId ? { itemId } : {})
+      },
+      always: []
+    }
+  }
+
+  private permissionFromApprovalMethod(method: string): string {
+    switch (method) {
+      case 'item/commandExecution/requestApproval':
+        return 'bash'
+      case 'item/fileRead/requestApproval':
+        return 'read'
+      case 'item/fileChange/requestApproval':
+        return 'edit'
+      default:
+        return 'unknown'
+    }
+  }
+
+  private patternsFromApprovalPayload(
+    method: string,
+    payload: Record<string, unknown> | undefined
+  ): string[] {
+    if (!payload) return []
+
+    if (method === 'item/commandExecution/requestApproval') {
+      const command = asString(payload.command)
+      return command ? [command] : []
+    }
+
+    const filePath =
+      asString(payload.path) ?? asString(payload.filePath) ?? asString(payload.target)
+    return filePath ? [filePath] : []
   }
 
   /** Check if a question requestId belongs to this implementer */
@@ -759,11 +875,7 @@ export class CodexImplementer implements AgentSdkImplementer {
 
   // ── Session management ───────────────────────────────────────────
 
-  async renameSession(
-    _worktreePath: string,
-    agentSessionId: string,
-    name: string
-  ): Promise<void> {
+  async renameSession(_worktreePath: string, agentSessionId: string, name: string): Promise<void> {
     // Codex has no server-side rename — just update Hive's local DB
     if (!this.dbService) {
       log.warn('renameSession: no dbService available', { agentSessionId })
@@ -863,9 +975,7 @@ export class CodexImplementer implements AgentSdkImplementer {
     return status
   }
 
-  private statusToHive(
-    status: CodexSessionState['status']
-  ): 'idle' | 'busy' | 'retry' {
+  private statusToHive(status: CodexSessionState['status']): 'idle' | 'busy' | 'retry' {
     if (status === 'running') return 'busy'
     return 'idle'
   }
@@ -922,16 +1032,16 @@ export class CodexImplementer implements AgentSdkImplementer {
         }
 
         const isErrorStateChange =
-          (event.method === 'session.state.changed' ||
-            event.method === 'session/state/changed') &&
+          (event.method === 'session.state.changed' || event.method === 'session/state/changed') &&
           (event.payload as Record<string, unknown> | undefined)?.state === 'error'
 
         if (isErrorStateChange) {
           const payload = event.payload as Record<string, unknown>
-          const reason = (payload?.reason as string)
-            ?? (payload?.error as string)
-            ?? event.message
-            ?? 'Session entered error state'
+          const reason =
+            (payload?.reason as string) ??
+            (payload?.error as string) ??
+            event.message ??
+            'Session entered error state'
           cleanup()
           reject(new Error(reason))
         }
@@ -1008,9 +1118,7 @@ export class CodexImplementer implements AgentSdkImplementer {
     // Return the ID of what's now the last message, or a synthetic boundary
     if (session.messages.length > 0) {
       const last = asObject(session.messages[session.messages.length - 1])
-      return asString(last?.id)
-        ?? asString(last?.timestamp)
-        ?? `revert-${session.messages.length}`
+      return asString(last?.id) ?? asString(last?.timestamp) ?? `revert-${session.messages.length}`
     }
 
     return 'revert-0'
@@ -1059,11 +1167,13 @@ export class CodexImplementer implements AgentSdkImplementer {
       if (outputText) {
         messages.push({
           role: 'assistant',
-          parts: [{
-            type: 'text',
-            text: outputText,
-            timestamp: asString(turnObj.updatedAt) ?? new Date().toISOString()
-          }],
+          parts: [
+            {
+              type: 'text',
+              text: outputText,
+              timestamp: asString(turnObj.updatedAt) ?? new Date().toISOString()
+            }
+          ],
           timestamp: asString(turnObj.updatedAt) ?? new Date().toISOString()
         })
       } else if (Array.isArray(output)) {

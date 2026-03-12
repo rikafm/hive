@@ -215,9 +215,9 @@ describe('Codex Permission Requests', () => {
     })
 
     it('throws when threadId is unknown', () => {
-      expect(() =>
-        manager.respondToApproval('nonexistent', 'req-1', 'once')
-      ).toThrow('no session for threadId')
+      expect(() => manager.respondToApproval('nonexistent', 'req-1', 'once')).toThrow(
+        'no session for threadId'
+      )
     })
 
     it('throws when requestId is not pending', () => {
@@ -225,9 +225,9 @@ describe('Codex Permission Requests', () => {
       const sessionsMap = (manager as any).sessions as Map<string, CodexSessionContext>
       sessionsMap.set('thread-perm-1', context)
 
-      expect(() =>
-        manager.respondToApproval('thread-perm-1', 'nonexistent', 'once')
-      ).toThrow('no pending approval')
+      expect(() => manager.respondToApproval('thread-perm-1', 'nonexistent', 'once')).toThrow(
+        'no pending approval'
+      )
     })
   })
 
@@ -277,37 +277,13 @@ describe('Codex Permission Requests', () => {
 
   describe('CodexImplementer.permissionReply', () => {
     it('routes through to manager.respondToApproval', async () => {
-      // Use the mock manager pattern from prompt tests
-      const _mockManagerForImpl = {
-        startSession: vi.fn(),
-        stopSession: vi.fn(),
-        stopAll: vi.fn(),
-        hasSession: vi.fn().mockReturnValue(false),
-        getSession: vi.fn(),
-        listSessions: vi.fn().mockReturnValue([]),
-        sendTurn: vi.fn(),
-        respondToApproval: vi.fn(),
-        respondToUserInput: vi.fn(),
-        rejectUserInput: vi.fn(),
-        interruptTurn: vi.fn(),
-        readThread: vi.fn(),
-        getPendingApprovals: vi.fn().mockReturnValue([]),
-        getPendingUserInputs: vi.fn().mockReturnValue([]),
-        on: vi.fn(),
-        emit: vi.fn(),
-        removeListener: vi.fn(),
-        removeAllListeners: vi.fn()
-      }
-
       // We need to import after mocking — but since the manager mock
       // is already set up at module level for the prompt tests, let's
       // test this via the real implementer with manual session seeding
 
       // Direct test: populate pending approval in implementer's tracking map
       // and verify it calls the manager correctly
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
 
@@ -317,7 +293,9 @@ describe('Codex Permission Requests', () => {
         hiveSessionId: 'hive-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
 
       // Seed a pending approval in the implementer's map
@@ -343,10 +321,8 @@ describe('Codex Permission Requests', () => {
   // ── Implementer permissionList ──────────────────────────────────
 
   describe('CodexImplementer.permissionList', () => {
-    it('returns pending approvals from all sessions', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+    it('returns pending approvals from all sessions in PermissionRequest shape', async () => {
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
 
@@ -356,18 +332,23 @@ describe('Codex Permission Requests', () => {
         hiveSessionId: 'hive-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
       impl.getSessions().set('/test::thread-2', {
         threadId: 'thread-2',
         hiveSessionId: 'hive-2',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
 
       // Mock manager to return pending approvals
-      internalManager.getPendingApprovals = vi.fn()
+      internalManager.getPendingApprovals = vi
+        .fn()
         .mockReturnValueOnce([
           { requestId: 'a1', method: 'item/commandExecution/requestApproval', threadId: 'thread-1' }
         ])
@@ -377,8 +358,10 @@ describe('Codex Permission Requests', () => {
 
       const permissions = await impl.permissionList()
       expect(permissions).toHaveLength(2)
-      expect((permissions[0] as any).requestId).toBe('a1')
-      expect((permissions[1] as any).requestId).toBe('a2')
+      expect((permissions[0] as any).id).toBe('a1')
+      expect((permissions[0] as any).permission).toBe('bash')
+      expect((permissions[1] as any).id).toBe('a2')
+      expect((permissions[1] as any).permission).toBe('edit')
     })
   })
 })

@@ -49,6 +49,7 @@ export interface PendingApprovalRequest {
   threadId: string
   turnId?: string
   itemId?: string
+  payload?: unknown
 }
 
 export interface PendingUserInputRequest {
@@ -169,6 +170,7 @@ const CODEX_PLAN_DEVELOPER_INSTRUCTIONS = `<collaboration_mode># Collaboration M
 You are operating in **plan** (conversational) mode.
 
 **IMPORTANT:** The \`request_user_input\` tool IS AVAILABLE and you should use it liberally.
+**IMPORTANT:** Do NOT make code changes, do NOT edit files, and do NOT continue into implementation in this turn.
 
 ## Core Behavior
 - **Strongly prefer** asking clarifying questions before writing code
@@ -191,7 +193,7 @@ Clarify HOW to build it:
 - Discuss implementation approach before writing code
 - Ask about any technical trade-offs or preferences
 
-Only begin writing code after Phases 1-2 are complete and you have sufficient clarity.
+When you have enough clarity, present the plan and stop. Wait for the next user message before implementing anything.
 </collaboration_mode>`
 
 // ── Stderr classification ─────────────────────────────────────────
@@ -399,25 +401,16 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
             `Could not resume thread ${options.resumeThreadId}; starting new thread.`
           )
 
-          threadOpenResponse = await this.sendRequest(
-            context,
-            'thread/start',
-            threadStartParams
-          )
+          threadOpenResponse = await this.sendRequest(context, 'thread/start', threadStartParams)
         }
       } else {
-        threadOpenResponse = await this.sendRequest(
-          context,
-          'thread/start',
-          threadStartParams
-        )
+        threadOpenResponse = await this.sendRequest(context, 'thread/start', threadStartParams)
       }
 
       // Extract thread ID from response
       const responseRecord = asObject(threadOpenResponse)
       const threadObj = asObject(responseRecord?.thread)
-      const providerThreadId =
-        asString(threadObj?.id) ?? asString(responseRecord?.threadId)
+      const providerThreadId = asString(threadObj?.id) ?? asString(responseRecord?.threadId)
 
       if (!providerThreadId) {
         throw new Error('Thread start/resume response did not include a thread id.')
@@ -434,11 +427,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         resumeCursor: providerThreadId
       })
 
-      this.emitLifecycleEvent(
-        context,
-        'session/ready',
-        `Connected to thread ${providerThreadId}`
-      )
+      this.emitLifecycleEvent(context, 'session/ready', `Connected to thread ${providerThreadId}`)
 
       log.info('Session started', {
         threadId: providerThreadId,
@@ -522,10 +511,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     return Array.from(this.sessions.values(), ({ session }) => ({ ...session }))
   }
 
-  async sendTurn(
-    threadId: string,
-    input: CodexTurnInput
-  ): Promise<CodexTurnStartResult> {
+  async sendTurn(threadId: string, input: CodexTurnInput): Promise<CodexTurnStartResult> {
     const context = this.sessions.get(threadId)
     if (!context) {
       throw new Error(`sendTurn: no session found for threadId=${threadId}`)
@@ -574,11 +560,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     this.updateSession(context, { status: 'running' })
     this.emitLifecycleEvent(context, 'turn/sending', 'Sending turn')
 
-    const response = await this.sendRequest<Record<string, unknown>>(
-      context,
-      'turn/start',
-      params
-    )
+    const response = await this.sendRequest<Record<string, unknown>>(context, 'turn/start', params)
 
     const responseObj = asObject(response)
     const turnObj = asObject(responseObj?.turn)
@@ -694,11 +676,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
 
     context.pendingUserInputs.delete(requestId)
 
-    this.emitLifecycleEvent(
-      context,
-      'userInput/rejected',
-      `User input ${requestId} rejected`
-    )
+    this.emitLifecycleEvent(context, 'userInput/rejected', `User input ${requestId} rejected`)
   }
 
   async interruptTurn(threadId: string, turnId?: string): Promise<void> {
@@ -820,8 +798,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         return
       }
 
-      const message =
-        `codex app-server exited (code=${code ?? 'null'}, signal=${signal ?? 'null'}).`
+      const message = `codex app-server exited (code=${code ?? 'null'}, signal=${signal ?? 'null'}).`
       this.updateSession(context, {
         status: 'closed',
         activeTurnId: null,
@@ -950,6 +927,7 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         jsonRpcId: request.id,
         method: request.method,
         threadId: context.session.threadId ?? '',
+        payload: request.params,
         ...(route.turnId ? { turnId: route.turnId } : {}),
         ...(route.itemId ? { itemId: route.itemId } : {})
       })
@@ -1106,4 +1084,3 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     }
   }
 }
-

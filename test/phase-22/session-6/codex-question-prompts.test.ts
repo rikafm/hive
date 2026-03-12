@@ -152,9 +152,7 @@ describe('Codex Question Prompts', () => {
         threadId: 'thread-q-1'
       })
 
-      manager.respondToUserInput('thread-q-1', 'uinput-1', [
-        { id: 'q1', answer: 'yes' }
-      ])
+      manager.respondToUserInput('thread-q-1', 'uinput-1', [{ id: 'q1', answer: 'yes' }])
 
       expect(context.pendingUserInputs.size).toBe(0)
     })
@@ -173,9 +171,7 @@ describe('Codex Question Prompts', () => {
         threadId: 'thread-q-1'
       })
 
-      manager.respondToUserInput('thread-q-1', 'uinput-1', [
-        { id: 'q1', answer: 'yes' }
-      ])
+      manager.respondToUserInput('thread-q-1', 'uinput-1', [{ id: 'q1', answer: 'yes' }])
 
       const inputEvent = events.find((e) => e.method === 'item/tool/requestUserInput/answered')
       expect(inputEvent).toBeDefined()
@@ -186,9 +182,9 @@ describe('Codex Question Prompts', () => {
     })
 
     it('throws when threadId is unknown', () => {
-      expect(() =>
-        manager.respondToUserInput('nonexistent', 'req-1', [])
-      ).toThrow('no session for threadId')
+      expect(() => manager.respondToUserInput('nonexistent', 'req-1', [])).toThrow(
+        'no session for threadId'
+      )
     })
 
     it('throws when requestId is not pending', () => {
@@ -196,9 +192,9 @@ describe('Codex Question Prompts', () => {
       const sessionsMap = (manager as any).sessions as Map<string, CodexSessionContext>
       sessionsMap.set('thread-q-1', context)
 
-      expect(() =>
-        manager.respondToUserInput('thread-q-1', 'nonexistent', [])
-      ).toThrow('no pending user input')
+      expect(() => manager.respondToUserInput('thread-q-1', 'nonexistent', [])).toThrow(
+        'no pending user input'
+      )
     })
   })
 
@@ -293,9 +289,7 @@ describe('Codex Question Prompts', () => {
 
   describe('CodexImplementer.questionReply', () => {
     it('routes correctly to manager.respondToUserInput', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
 
@@ -305,7 +299,9 @@ describe('Codex Question Prompts', () => {
         hiveSessionId: 'hive-q-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
 
       // Seed pending question
@@ -319,19 +315,19 @@ describe('Codex Question Prompts', () => {
       internalManager.respondToUserInput = vi.fn()
 
       // answers format: string[][] where each entry is [id, answer]
-      await impl.questionReply('q-req-1', [['q1', 'yes'], ['q2', 'no']])
+      await impl.questionReply('q-req-1', [
+        ['q1', 'yes'],
+        ['q2', 'no']
+      ])
 
-      expect(internalManager.respondToUserInput).toHaveBeenCalledWith(
-        'thread-q-1',
-        'q-req-1',
-        [{ id: 'q1', answer: 'yes' }, { id: 'q2', answer: 'no' }]
-      )
+      expect(internalManager.respondToUserInput).toHaveBeenCalledWith('thread-q-1', 'q-req-1', [
+        { id: 'q1', answer: 'yes' },
+        { id: 'q2', answer: 'no' }
+      ])
     })
 
     it('removes question from pending after reply', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
       internalManager.respondToUserInput = vi.fn()
@@ -341,7 +337,9 @@ describe('Codex Question Prompts', () => {
         hiveSessionId: 'hive-q-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
       impl.getPendingQuestions().set('q-req-1', {
         threadId: 'thread-q-1',
@@ -355,22 +353,18 @@ describe('Codex Question Prompts', () => {
     })
 
     it('throws when requestId is not pending', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
 
-      await expect(
-        impl.questionReply('nonexistent', [['q1', 'yes']])
-      ).rejects.toThrow('No pending question found')
+      await expect(impl.questionReply('nonexistent', [['q1', 'yes']])).rejects.toThrow(
+        'No pending question found'
+      )
     })
   })
 
   describe('CodexImplementer.questionReject', () => {
     it('routes correctly to manager.rejectUserInput', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
 
@@ -379,7 +373,9 @@ describe('Codex Question Prompts', () => {
         hiveSessionId: 'hive-q-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
       impl.getPendingQuestions().set('q-req-2', {
         threadId: 'thread-q-1',
@@ -391,16 +387,11 @@ describe('Codex Question Prompts', () => {
 
       await impl.questionReject('q-req-2')
 
-      expect(internalManager.rejectUserInput).toHaveBeenCalledWith(
-        'thread-q-1',
-        'q-req-2'
-      )
+      expect(internalManager.rejectUserInput).toHaveBeenCalledWith('thread-q-1', 'q-req-2')
     })
 
     it('removes question from pending after reject', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
       internalManager.rejectUserInput = vi.fn()
@@ -410,7 +401,9 @@ describe('Codex Question Prompts', () => {
         hiveSessionId: 'hive-q-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
       impl.getPendingQuestions().set('q-req-2', {
         threadId: 'thread-q-1',
@@ -424,14 +417,10 @@ describe('Codex Question Prompts', () => {
     })
 
     it('throws when requestId is not pending', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
 
-      await expect(
-        impl.questionReject('nonexistent')
-      ).rejects.toThrow('No pending question found')
+      await expect(impl.questionReject('nonexistent')).rejects.toThrow('No pending question found')
     })
   })
 
@@ -439,9 +428,7 @@ describe('Codex Question Prompts', () => {
 
   describe('CodexImplementer.hasPendingQuestion', () => {
     it('returns true when question is pending', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
 
       impl.getPendingQuestions().set('q-1', {
@@ -454,9 +441,7 @@ describe('Codex Question Prompts', () => {
     })
 
     it('returns false when question is not pending', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
 
       expect(impl.hasPendingQuestion('nonexistent')).toBe(false)
@@ -467,9 +452,7 @@ describe('Codex Question Prompts', () => {
 
   describe('CodexImplementer event forwarding', () => {
     it('forwards question.asked event to renderer on requestUserInput', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
       const mockWindow = {
@@ -484,7 +467,9 @@ describe('Codex Question Prompts', () => {
         hiveSessionId: 'hive-q-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
 
       // Capture the manager event listener
@@ -527,10 +512,8 @@ describe('Codex Question Prompts', () => {
       expect(impl.getPendingQuestions().has('req-q-1')).toBe(true)
     })
 
-    it('forwards request.opened event to renderer on requestApproval', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+    it('forwards permission.asked event to renderer on requestApproval', async () => {
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
       const mockWindow = {
@@ -544,14 +527,15 @@ describe('Codex Question Prompts', () => {
         hiveSessionId: 'hive-q-1',
         worktreePath: '/test',
         status: 'ready',
-        messages: []
+        messages: [],
+        revertMessageID: null,
+        revertDiff: null
       })
 
       let managerListener: any
       internalManager.on = vi.fn().mockImplementation((_: string, handler: any) => {
         managerListener = handler
       })
-
       ;(impl as any).attachManagerListener()
 
       managerListener({
@@ -570,20 +554,19 @@ describe('Codex Question Prompts', () => {
         .filter((c: any[]) => c[0] === 'opencode:stream')
         .map((c: any[]) => c[1])
 
-      const approvalEvent = streamCalls.find((e: any) => e.type === 'request.opened')
+      const approvalEvent = streamCalls.find((e: any) => e.type === 'permission.asked')
       expect(approvalEvent).toBeDefined()
       expect(approvalEvent.sessionId).toBe('hive-q-1')
-      expect(approvalEvent.data.requestId).toBe('req-a-1')
-      expect(approvalEvent.data.method).toBe('item/commandExecution/requestApproval')
+      expect(approvalEvent.data.id).toBe('req-a-1')
+      expect(approvalEvent.data.permission).toBe('bash')
+      expect(approvalEvent.data.patterns).toEqual(['rm -rf /'])
 
       // Verify it was tracked in pending approvals
       expect(impl.getPendingApprovalSessions().has('req-a-1')).toBe(true)
     })
 
     it('ignores events for unknown threads', async () => {
-      const { CodexImplementer } = await import(
-        '../../../src/main/services/codex-implementer'
-      )
+      const { CodexImplementer } = await import('../../../src/main/services/codex-implementer')
       const impl = new CodexImplementer()
       const internalManager = impl.getManager() as any
       const mockWindow = {
@@ -596,7 +579,6 @@ describe('Codex Question Prompts', () => {
       internalManager.on = vi.fn().mockImplementation((_: string, handler: any) => {
         managerListener = handler
       })
-
       ;(impl as any).attachManagerListener()
 
       // Event for unknown thread

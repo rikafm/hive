@@ -35,11 +35,15 @@ describe('mapCodexEventToStreamEvents', () => {
     })
 
     it('classifies item/reasoning/summaryTextDelta as reasoning_summary', () => {
-      expect(contentStreamKindFromMethod('item/reasoning/summaryTextDelta')).toBe('reasoning_summary')
+      expect(contentStreamKindFromMethod('item/reasoning/summaryTextDelta')).toBe(
+        'reasoning_summary'
+      )
     })
 
     it('classifies item/commandExecution/outputDelta as command_output', () => {
-      expect(contentStreamKindFromMethod('item/commandExecution/outputDelta')).toBe('command_output')
+      expect(contentStreamKindFromMethod('item/commandExecution/outputDelta')).toBe(
+        'command_output'
+      )
     })
 
     it('classifies item/fileChange/outputDelta as file_change_output', () => {
@@ -66,7 +70,10 @@ describe('mapCodexEventToStreamEvents', () => {
       expect(result[0]).toEqual({
         type: 'message.part.updated',
         sessionId: HIVE_SESSION,
-        data: { type: 'text', text: 'Hello world' }
+        data: {
+          part: { type: 'text', text: 'Hello world' },
+          delta: 'Hello world'
+        }
       })
     })
 
@@ -79,7 +86,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'text', text: 'direct text' })
+      expect(result[0].data).toEqual({
+        part: { type: 'text', text: 'direct text' },
+        delta: 'direct text'
+      })
     })
 
     it('maps item/reasoning/textDelta to reasoning type', () => {
@@ -94,7 +104,10 @@ describe('mapCodexEventToStreamEvents', () => {
       expect(result[0]).toEqual({
         type: 'message.part.updated',
         sessionId: HIVE_SESSION,
-        data: { type: 'reasoning', text: 'Let me think...' }
+        data: {
+          part: { type: 'reasoning', text: 'Let me think...' },
+          delta: 'Let me think...'
+        }
       })
     })
 
@@ -107,7 +120,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'reasoning', text: 'Summary of reasoning' })
+      expect(result[0].data).toEqual({
+        part: { type: 'reasoning', text: 'Summary of reasoning' },
+        delta: 'Summary of reasoning'
+      })
     })
 
     it('maps item/commandExecution/outputDelta to text type', () => {
@@ -119,7 +135,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'text', text: 'command output line' })
+      expect(result[0].data).toEqual({
+        part: { type: 'text', text: 'command output line' },
+        delta: 'command output line'
+      })
     })
 
     it('maps item/fileChange/outputDelta to text type', () => {
@@ -131,7 +150,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'text', text: 'file change diff' })
+      expect(result[0].data).toEqual({
+        part: { type: 'text', text: 'file change diff' },
+        delta: 'file change diff'
+      })
     })
 
     it('maps item/plan/delta to text type', () => {
@@ -143,7 +165,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'text', text: 'plan step 1' })
+      expect(result[0].data).toEqual({
+        part: { type: 'text', text: 'plan step 1' },
+        delta: 'plan step 1'
+      })
     })
 
     it('returns empty array for delta with no text', () => {
@@ -168,7 +193,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'text', text: 'structured delta' })
+      expect(result[0].data).toEqual({
+        part: { type: 'text', text: 'structured delta' },
+        delta: 'structured delta'
+      })
     })
 
     it('maps assistantText at payload level', () => {
@@ -180,7 +208,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'text', text: 'payload assistant text' })
+      expect(result[0].data).toEqual({
+        part: { type: 'text', text: 'payload assistant text' },
+        delta: 'payload assistant text'
+      })
     })
 
     it('maps reasoningText at payload level', () => {
@@ -192,7 +223,10 @@ describe('mapCodexEventToStreamEvents', () => {
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect(result[0].data).toEqual({ type: 'reasoning', text: 'payload reasoning text' })
+      expect(result[0].data).toEqual({
+        part: { type: 'reasoning', text: 'payload reasoning text' },
+        delta: 'payload reasoning text'
+      })
     })
   })
 
@@ -297,7 +331,7 @@ describe('mapCodexEventToStreamEvents', () => {
       const event = makeEvent({
         method: 'item.started',
         payload: {
-          item: { id: 'item-1', toolName: 'shell', type: 'command' }
+          item: { id: 'item-1', toolName: 'shell', type: 'commandExecution' }
         }
       })
 
@@ -307,7 +341,14 @@ describe('mapCodexEventToStreamEvents', () => {
       expect(result[0]).toEqual({
         type: 'message.part.updated',
         sessionId: HIVE_SESSION,
-        data: { type: 'tool_use', toolName: 'shell', callID: 'item-1' }
+        data: {
+          part: {
+            type: 'tool',
+            callID: 'item-1',
+            tool: 'shell',
+            state: { status: 'running' }
+          }
+        }
       })
     })
 
@@ -315,15 +356,15 @@ describe('mapCodexEventToStreamEvents', () => {
       const event = makeEvent({
         method: 'item/started',
         payload: {
-          item: { id: 'item-2', name: 'file_edit' }
+          item: { id: 'item-2', name: 'file_edit', type: 'fileChange' }
         }
       })
 
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect((result[0].data as any).toolName).toBe('file_edit')
-      expect((result[0].data as any).callID).toBe('item-2')
+      expect((result[0].data as any).part.tool).toBe('file_edit')
+      expect((result[0].data as any).part.callID).toBe('item-2')
     })
   })
 
@@ -334,15 +375,15 @@ describe('mapCodexEventToStreamEvents', () => {
       const event = makeEvent({
         method: 'item.updated',
         payload: {
-          item: { id: 'item-3', toolName: 'shell', status: 'running' }
+          item: { id: 'item-3', toolName: 'shell', type: 'commandExecution', status: 'running' }
         }
       })
 
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
       expect(result).toHaveLength(1)
-      expect((result[0].data as any).type).toBe('tool_use')
-      expect((result[0].data as any).status).toBe('running')
+      expect((result[0].data as any).part.type).toBe('tool')
+      expect((result[0].data as any).part.state.status).toBe('running')
     })
   })
 
@@ -356,6 +397,7 @@ describe('mapCodexEventToStreamEvents', () => {
           item: {
             id: 'item-4',
             toolName: 'shell',
+            type: 'commandExecution',
             status: 'completed',
             output: 'file created'
           }
@@ -369,11 +411,15 @@ describe('mapCodexEventToStreamEvents', () => {
         type: 'message.part.updated',
         sessionId: HIVE_SESSION,
         data: {
-          type: 'tool_result',
-          toolName: 'shell',
-          callID: 'item-4',
-          status: 'completed',
-          output: 'file created'
+          part: {
+            type: 'tool',
+            callID: 'item-4',
+            tool: 'shell',
+            state: {
+              status: 'completed',
+              output: 'file created'
+            }
+          }
         }
       })
     })
@@ -382,13 +428,13 @@ describe('mapCodexEventToStreamEvents', () => {
       const event = makeEvent({
         method: 'item/completed',
         payload: {
-          item: { id: 'item-5', name: 'file_read' }
+          item: { id: 'item-5', name: 'file_read', type: 'fileChange' }
         }
       })
 
       const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
 
-      expect((result[0].data as any).status).toBe('completed')
+      expect((result[0].data as any).part.state.status).toBe('completed')
     })
   })
 
@@ -652,5 +698,23 @@ describe('mapCodexEventToStreamEvents', () => {
 
       expect(result[0].sessionId).toBe('custom-session-id')
     })
+  })
+
+  it('normalizes command arrays into input.command for commandExecution items', () => {
+    const event = makeEvent({
+      method: 'item.started',
+      payload: {
+        item: {
+          id: 'item-cmd-1',
+          toolName: 'shell',
+          type: 'commandExecution',
+          command: ['/bin/zsh', '-lc', 'pnpm test']
+        }
+      }
+    })
+
+    const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+
+    expect((result[0].data as any).part.state.input).toEqual({ command: '/bin/zsh -lc pnpm test' })
   })
 })
