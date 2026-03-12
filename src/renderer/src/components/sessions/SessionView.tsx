@@ -1366,6 +1366,17 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
                 }
               }
 
+              // Strip <proposed_plan> XML blocks from streaming text to avoid duplication
+              // (the plan content will be shown in the ExitPlanMode tool card instead)
+              updateStreamingPartsRef((parts) =>
+                parts.map((p) => {
+                  if (p.type !== 'text' || !p.text) return p
+                  const stripped = p.text.replace(/<proposed_plan>\s*[\s\S]*?\s*<\/proposed_plan>/gi, '').trim()
+                  if (!stripped) return { ...p, text: '' }
+                  return { ...p, text: stripped }
+                })
+              )
+
               // Inject plan content into the ExitPlanMode tool_use input for rendering
               if (planText && data.toolUseID) {
                 const hasExisting = streamingPartsRef.current.some(
@@ -3069,6 +3080,18 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
 
+      // Transition ExitPlanMode tool card to "accepted" state
+      if (pendingBeforeAction.toolUseID) {
+        updateStreamingPartsRef((parts) =>
+          parts.map((p) =>
+            p.type === 'tool_use' && p.toolUse?.id === pendingBeforeAction.toolUseID
+              ? { ...p, toolUse: { ...p.toolUse!, status: 'success' as const } }
+              : p
+          )
+        )
+        immediateFlush()
+      }
+
       await useSessionStore.getState().setSessionMode(sessionId, 'build')
       lastSendMode.set(sessionId, 'build')
       await handleSend(buildPlanImplementationPrompt(pendingBeforeAction.planContent))
@@ -3148,8 +3171,22 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       if (!pendingPlan) return
 
       if (!isClaudeCode) {
+        const pendingBeforeAction = pendingPlan
         useSessionStore.getState().clearPendingPlan(sessionId)
         useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+
+        // Transition ExitPlanMode tool card to "rejected" state
+        if (pendingBeforeAction?.toolUseID) {
+          updateStreamingPartsRef((parts) =>
+            parts.map((p) =>
+              p.type === 'tool_use' && p.toolUse?.id === pendingBeforeAction.toolUseID
+                ? { ...p, toolUse: { ...p.toolUse!, status: 'error' as const, error: feedback } }
+                : p
+            )
+          )
+          immediateFlush()
+        }
+
         await useSessionStore.getState().setSessionMode(sessionId, 'plan')
         lastSendMode.set(sessionId, 'plan')
         await handleSend(feedback)
