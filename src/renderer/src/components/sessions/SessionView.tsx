@@ -426,6 +426,10 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const [streamingParts, setStreamingParts] = useState<StreamingPart[]>([])
   const streamingPartsRef = useRef<StreamingPart[]>([])
 
+  // When non-null, text deltas are routed into this ExitPlanMode tool card
+  // instead of regular text parts. Stores the temporary tool_use ID.
+  const planCardRoutingRef = useRef<string | null>(null)
+
   // Legacy streaming content for backward compatibility
   const [streamingContent, setStreamingContent] = useState<string>('')
   const streamingContentRef = useRef<string>('')
@@ -913,6 +917,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     setStreamingContent('')
     setIsStreaming(false)
     lastSentPromptRef.current = null
+    planCardRoutingRef.current = null
   }, [])
 
   // Load session info and connect to OpenCode
@@ -1181,6 +1186,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     setStreamingParts([])
     setStreamingContent('')
     hasFinalizedCurrentResponseRef.current = false
+    planCardRoutingRef.current = null
 
     // Subscribe to OpenCode stream events SYNCHRONOUSLY before any async work.
     // This prevents a race condition where session.idle arrives during async
@@ -1340,13 +1346,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
           // Handle plan events (ExitPlanMode blocking tool)
           if (event.type === 'plan.ready') {
-            console.log('[DEBUG:PLAN:SessionView] plan.ready received', {
-              sessionId,
-              eventSessionId: event.sessionId,
-              data: event.data,
-              streamingPartsCount: streamingPartsRef.current.length,
-              streamingPartsTypes: streamingPartsRef.current.map((p) => p.type)
-            })
             const data = event.data as {
               id?: string
               requestId?: string
@@ -1354,13 +1353,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               toolUseID?: string
             }
             const requestId = data?.id || data?.requestId
-            console.log('[DEBUG:PLAN:SessionView] plan.ready parsed', {
-              requestId,
-              planLength: (data.plan ?? '').length,
-              toolUseID: data.toolUseID,
-              toolUseIDTruthy: !!data.toolUseID,
-              hasRequestId: !!requestId
-            })
             if (requestId) {
               let planText = data.plan ?? ''
 
@@ -1380,79 +1372,76 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
                 }
               }
 
-              // Strip <proposed_plan> XML blocks from streaming text to avoid duplication
-              // (the plan content will be shown in the ExitPlanMode tool card instead)
-              updateStreamingPartsRef((parts) =>
-                parts.map((p) => {
-                  if (p.type !== 'text' || !p.text) return p
-                  const stripped = p.text.replace(/<proposed_plan>\s*[\s\S]*?\s*<\/proposed_plan>/gi, '').trim()
-                  if (!stripped) return { ...p, text: '' }
-                  return { ...p, text: stripped }
-                })
-              )
+              // If we were progressively routing text into a streaming card, finalize it
+              const streamingCardId = planCardRoutingRef.current
+              if (streamingCardId) {
+                planCardRoutingRef.current = null
 
-              console.log('[DEBUG:PLAN:SessionView] Before tool card injection', {
-                planTextLength: planText.length,
-                planTextFirst100: planText.slice(0, 100),
-                toolUseID: data.toolUseID,
-                willEnterBlock: !!(planText && data.toolUseID),
-                streamingPartsAfterStrip: streamingPartsRef.current.length
-              })
-
-              // Inject plan content into the ExitPlanMode tool_use input for rendering
-              if (planText && data.toolUseID) {
-                const hasExisting = streamingPartsRef.current.some(
-                  (p) => p.type === 'tool_use' && p.toolUse?.id === data.toolUseID
-                )
-                if (hasExisting) {
-                  // Update existing streaming part
-                  updateStreamingPartsRef((parts) =>
-                    parts.map((p) =>
-                      p.type === 'tool_use' && p.toolUse?.id === data.toolUseID
-                        ? {
-                            ...p,
-                            toolUse: {
-                              ...p.toolUse!,
-                              input: { ...p.toolUse!.input, plan: planText },
-                              status: 'pending' as const
-                            }
-                          }
-                        : p
-                    )
-                  )
-                } else {
-                  // Tool_use part not yet in streaming parts (race: content_block_start
-                  // hasn't been processed yet) — create it so the plan card renders
-                  updateStreamingPartsRef((parts) => [
-                    ...parts,
-                    {
-                      type: 'tool_use' as const,
+                // Replace streaming text with clean plan text + real toolUseID
+                updateStreamingPartsRef((parts) =>
+                  parts.map((p) => {
+                    if (p.type !== 'tool_use' || p.toolUse?.id !== streamingCardId) return p
+                    const finalPlan = planText || (p.toolUse!.input.plan as string) || ''
+                    return {
+                      ...p,
                       toolUse: {
-                        id: data.toolUseID,
-                        name: 'ExitPlanMode',
-                        input: { plan: planText },
-                        status: 'pending' as const,
-                        startTime: Date.now()
+                        ...p.toolUse!,
+                        id: data.toolUseID || p.toolUse!.id,
+                        input: { ...p.toolUse!.input, plan: finalPlan },
+                        status: 'pending' as const
                       }
                     }
-                  ])
-                }
+                  })
+                )
                 immediateFlush()
-                console.log('[DEBUG:PLAN:SessionView] Tool card injected + flushed', {
-                  toolUseID: data.toolUseID,
-                  partsAfterInject: streamingPartsRef.current.length,
-                  partsTypes: streamingPartsRef.current.map((p) => p.type),
-                  toolUseParts: streamingPartsRef.current
-                    .filter((p) => p.type === 'tool_use')
-                    .map((p) => ({ id: p.toolUse?.id, name: p.toolUse?.name, status: p.toolUse?.status }))
-                })
               } else {
-                console.log('[DEBUG:PLAN:SessionView] SKIPPED tool card injection', {
-                  planTextLength: planText.length,
-                  planTextTruthy: !!planText,
-                  toolUseID: data.toolUseID,
-                  toolUseIDTruthy: !!data.toolUseID
-                })
+                // Fallback: strip XML from text parts and inject/update card
+                // (for Claude Code sessions or when progressive rendering wasn't active)
+                updateStreamingPartsRef((parts) =>
+                  parts.map((p) => {
+                    if (p.type !== 'text' || !p.text) return p
+                    const stripped = p.text.replace(/<proposed_plan>\s*[\s\S]*?\s*<\/proposed_plan>/gi, '').trim()
+                    if (!stripped) return { ...p, text: '' }
+                    return { ...p, text: stripped }
+                  })
+                )
+
+                if (planText && data.toolUseID) {
+                  const hasExisting = streamingPartsRef.current.some(
+                    (p) => p.type === 'tool_use' && p.toolUse?.id === data.toolUseID
+                  )
+                  if (hasExisting) {
+                    updateStreamingPartsRef((parts) =>
+                      parts.map((p) =>
+                        p.type === 'tool_use' && p.toolUse?.id === data.toolUseID
+                          ? {
+                              ...p,
+                              toolUse: {
+                                ...p.toolUse!,
+                                input: { ...p.toolUse!.input, plan: planText },
+                                status: 'pending' as const
+                              }
+                            }
+                          : p
+                      )
+                    )
+                  } else {
+                    updateStreamingPartsRef((parts) => [
+                      ...parts,
+                      {
+                        type: 'tool_use' as const,
+                        toolUse: {
+                          id: data.toolUseID,
+                          name: 'ExitPlanMode',
+                          input: { plan: planText },
+                          status: 'pending' as const,
+                          startTime: Date.now()
+                        }
+                      }
+                    ])
+                  }
+                  immediateFlush()
+                }
               }
 
               useSessionStore.getState().setPendingPlan(sessionId, {
@@ -1461,11 +1450,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
                 toolUseID: data.toolUseID ?? ''
               })
               useWorktreeStatusStore.getState().setSessionStatus(sessionId, 'plan_ready')
-              console.log('[DEBUG:PLAN:SessionView] setPendingPlan + plan_ready status done', {
-                requestId,
-                planContentLength: planText.length,
-                toolUseID: data.toolUseID ?? ''
-              })
             }
             return
           }
@@ -1616,14 +1600,67 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
             }
 
             if (part.type === 'text') {
-              // Update streaming text content with delta or full text
               const delta = event.data?.delta
-              if (delta) {
-                appendTextDelta(delta)
-              } else if (part.text) {
-                setTextContent(part.text)
+
+              // Codex plan mode: route text into ExitPlanMode card
+              const isCodexPlan =
+                sessionRecord?.agent_sdk === 'codex' &&
+                useSessionStore.getState().getSessionMode(sessionId) === 'plan'
+
+              if (isCodexPlan) {
+                const textToRoute = delta || part.text || ''
+                if (!textToRoute) {
+                  setIsStreaming(true)
+                } else if (!planCardRoutingRef.current) {
+                  // First text delta — create placeholder ExitPlanMode card
+                  const tempId = `codex-plan-streaming-${Date.now()}`
+                  planCardRoutingRef.current = tempId
+                  updateStreamingPartsRef((parts) => [
+                    ...parts,
+                    {
+                      type: 'tool_use' as const,
+                      toolUse: {
+                        id: tempId,
+                        name: 'ExitPlanMode',
+                        input: { plan: textToRoute },
+                        status: 'running' as const,
+                        startTime: Date.now()
+                      }
+                    }
+                  ])
+                  immediateFlush()
+                  setIsStreaming(true)
+                } else {
+                  // Subsequent deltas — append to card's input.plan
+                  const toolId = planCardRoutingRef.current
+                  updateStreamingPartsRef((parts) =>
+                    parts.map((p) =>
+                      p.type === 'tool_use' && p.toolUse?.id === toolId
+                        ? {
+                            ...p,
+                            toolUse: {
+                              ...p.toolUse!,
+                              input: {
+                                ...p.toolUse!.input,
+                                plan: ((p.toolUse!.input.plan as string) || '') + (delta || part.text || '')
+                              }
+                            }
+                          }
+                        : p
+                    )
+                  )
+                  scheduleFlush()
+                  setIsStreaming(true)
+                }
+              } else {
+                // Normal text handling (non-Codex or non-plan mode)
+                if (delta) {
+                  appendTextDelta(delta)
+                } else if (part.text) {
+                  setTextContent(part.text)
+                }
+                setIsStreaming(true)
               }
-              setIsStreaming(true)
             } else if (part.type === 'tool') {
               // Tool part from OpenCode SDK - has callID, tool (name), state
               const toolId = part.callID || part.id || `tool-${Date.now()}`
@@ -1837,6 +1874,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               setIsStreaming(true)
               hasFinalizedCurrentResponseRef.current = false
               newPromptPendingRef.current = false
+              planCardRoutingRef.current = null
               setIsSending(true)
 
               // Restore worktree status to working/planning
