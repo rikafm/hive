@@ -67,8 +67,10 @@ describe('CodexImplementer.prompt()', () => {
       worktreePath: '/test/project',
       status: 'ready',
       messages: [],
+      liveAssistantDraft: null,
       revertMessageID: null,
       revertDiff: null,
+      titleGenerated: false,
       ...overrides
     }
     impl.getSessions().set('/test/project::thread-1', session)
@@ -792,6 +794,156 @@ describe('CodexImplementer.prompt()', () => {
       messages.push({ role: 'fake' })
 
       expect(session.messages).toHaveLength(1)
+    })
+
+    it('returns a live in-progress assistant draft with text and tool parts while running', async () => {
+      seedSession()
+
+      let completeTurn: (() => void) | null = null
+      mockManager.sendTurn.mockImplementation(async () => {
+        setTimeout(() => {
+          for (const listener of [...eventListeners]) {
+            listener({
+              id: 'e-text',
+              kind: 'notification',
+              provider: 'codex',
+              threadId: 'thread-1',
+              createdAt: new Date().toISOString(),
+              method: 'item/agentMessage/delta',
+              textDelta: 'Thinking through it',
+              payload: { delta: 'Thinking through it' }
+            })
+            listener({
+              id: 'e-tool-start',
+              kind: 'notification',
+              provider: 'codex',
+              threadId: 'thread-1',
+              createdAt: new Date().toISOString(),
+              method: 'item.started',
+              payload: {
+                item: {
+                  type: 'commandExecution',
+                  id: 'tool-1',
+                  toolName: 'bash',
+                  input: { command: 'ls' }
+                }
+              }
+            })
+            listener({
+              id: 'e-tool-done',
+              kind: 'notification',
+              provider: 'codex',
+              threadId: 'thread-1',
+              createdAt: new Date().toISOString(),
+              method: 'item.completed',
+              payload: {
+                item: {
+                  type: 'commandExecution',
+                  id: 'tool-1',
+                  toolName: 'bash',
+                  status: 'completed',
+                  output: 'file-a'
+                }
+              }
+            })
+          }
+        }, 0)
+
+        await new Promise<void>((resolve) => {
+          completeTurn = resolve
+        })
+        return { turnId: 'turn-1', threadId: 'thread-1' }
+      })
+
+      const promptPromise = impl.prompt('/test/project', 'thread-1', 'Inspect repo')
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      const messages = await impl.getMessages('/test/project', 'thread-1')
+      expect(messages).toHaveLength(2)
+      expect((messages[0] as any).role).toBe('user')
+      expect((messages[1] as any).role).toBe('assistant')
+      expect((messages[1] as any).id).toBe('codex-live-thread-1')
+      expect((messages[1] as any).parts[0]).toMatchObject({
+        type: 'text',
+        text: 'Thinking through it'
+      })
+      expect((messages[1] as any).parts[1]).toMatchObject({
+        type: 'tool',
+        callID: 'tool-1',
+        tool: 'bash',
+        state: {
+          status: 'completed',
+          input: { command: 'ls' },
+          output: 'file-a'
+        }
+      })
+
+      for (const listener of [...eventListeners]) {
+        listener({
+          id: 'e-done',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'turn/completed',
+          payload: { turn: { status: 'completed' } }
+        })
+      }
+      completeTurn?.()
+      await promptPromise
+    })
+
+    it('returns a live text-only assistant draft while running', async () => {
+      seedSession()
+
+      let completeTurn: (() => void) | null = null
+      mockManager.sendTurn.mockImplementation(async () => {
+        setTimeout(() => {
+          for (const listener of [...eventListeners]) {
+            listener({
+              id: 'e-text',
+              kind: 'notification',
+              provider: 'codex',
+              threadId: 'thread-1',
+              createdAt: new Date().toISOString(),
+              method: 'item/agentMessage/delta',
+              textDelta: 'Partial answer',
+              payload: { delta: 'Partial answer' }
+            })
+          }
+        }, 0)
+
+        await new Promise<void>((resolve) => {
+          completeTurn = resolve
+        })
+        return { turnId: 'turn-1', threadId: 'thread-1' }
+      })
+
+      const promptPromise = impl.prompt('/test/project', 'thread-1', 'Say hi')
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      const messages = await impl.getMessages('/test/project', 'thread-1')
+      expect(messages).toHaveLength(2)
+      expect((messages[1] as any).parts).toEqual([
+        expect.objectContaining({
+          type: 'text',
+          text: 'Partial answer'
+        })
+      ])
+
+      for (const listener of [...eventListeners]) {
+        listener({
+          id: 'e-done',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'turn/completed',
+          payload: { turn: { status: 'completed' } }
+        })
+      }
+      completeTurn?.()
+      await promptPromise
     })
   })
 })

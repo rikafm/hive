@@ -25,9 +25,34 @@ export interface CodexSessionState {
   worktreePath: string
   status: 'connecting' | 'ready' | 'running' | 'error' | 'closed'
   messages: unknown[]
+  liveAssistantDraft?: CodexLiveAssistantDraft | null
   revertMessageID: string | null
   revertDiff: string | null
   titleGenerated: boolean
+}
+
+interface CodexLiveToolPart {
+  type: 'tool'
+  callID: string
+  tool: string
+  state: {
+    status: 'running' | 'completed' | 'error'
+    input?: unknown
+    output?: unknown
+    error?: unknown
+  }
+}
+
+type CodexLiveDraftPart =
+  | { type: 'text'; text: string; timestamp: string }
+  | { type: 'reasoning'; text: string; timestamp: string }
+  | CodexLiveToolPart
+
+interface CodexLiveAssistantDraft {
+  id: string
+  timestamp: string
+  parts: CodexLiveDraftPart[]
+  toolIndexById: Map<string, number>
 }
 
 // ── Pending HITL entry (shared by questions and approvals) ────────
@@ -353,6 +378,7 @@ export class CodexImplementer implements AgentSdkImplementer {
       worktreePath,
       status: this.mapProviderStatus(providerSession.status),
       messages: [],
+      liveAssistantDraft: null,
       revertMessageID: null,
       revertDiff: null,
       titleGenerated: false
@@ -416,6 +442,7 @@ export class CodexImplementer implements AgentSdkImplementer {
         worktreePath,
         status: this.mapProviderStatus(providerSession.status),
         messages: [],
+        liveAssistantDraft: null,
         revertMessageID: null,
         revertDiff: null,
         titleGenerated: true
@@ -533,6 +560,7 @@ export class CodexImplementer implements AgentSdkImplementer {
       parts: [{ type: 'text', text, timestamp: syntheticTimestamp }],
       timestamp: syntheticTimestamp
     })
+    this.resetLiveAssistantDraft(session)
 
     // Emit busy status
     session.status = 'running'
@@ -560,6 +588,7 @@ export class CodexImplementer implements AgentSdkImplementer {
       const streamEvents = mapCodexEventToStreamEvents(event, session.hiveSessionId)
       for (const streamEvent of streamEvents) {
         this.sendToRenderer('opencode:stream', streamEvent)
+        this.updateLiveAssistantDraftFromStreamEvent(session, streamEvent)
       }
 
       // Accumulate text for message history
@@ -652,6 +681,7 @@ export class CodexImplementer implements AgentSdkImplementer {
         if (parsed.length > 0) {
           session.messages = parsed
         }
+        session.liveAssistantDraft = null
       } catch (readError) {
         log.warn('prompt: readThread after turn failed, falling back to accumulated text', {
           agentSessionId,
@@ -680,6 +710,7 @@ export class CodexImplementer implements AgentSdkImplementer {
             timestamp: new Date().toISOString()
           })
         }
+        session.liveAssistantDraft = null
       }
 
       // If no plan was detected from streaming events, extract from the parsed
@@ -743,6 +774,7 @@ export class CodexImplementer implements AgentSdkImplementer {
       )
 
       session.status = 'error'
+      session.liveAssistantDraft = null
       this.sendToRenderer('opencode:stream', {
         type: 'session.error',
         sessionId: session.hiveSessionId,
@@ -773,6 +805,7 @@ export class CodexImplementer implements AgentSdkImplementer {
     }
 
     session.status = 'ready'
+    session.liveAssistantDraft = null
     this.emitStatus(session.hiveSessionId, 'idle')
     return true
   }
@@ -792,7 +825,16 @@ export class CodexImplementer implements AgentSdkImplementer {
 
     // Return in-memory messages if available
     if (session.messages.length > 0) {
-      return [...session.messages]
+      const liveDraftMessage =
+        session.status === 'running' ? this.cloneLiveAssistantDraftMessage(session) : null
+      return liveDraftMessage ? [...session.messages, liveDraftMessage] : [...session.messages]
+    }
+
+    if (session.status === 'running') {
+      const liveDraftMessage = this.cloneLiveAssistantDraftMessage(session)
+      if (liveDraftMessage) {
+        return [liveDraftMessage]
+      }
     }
 
     // Fallback: try reading from thread via the server
@@ -1224,6 +1266,148 @@ export class CodexImplementer implements AgentSdkImplementer {
     })
   }
 
+  private resetLiveAssistantDraft(session: CodexSessionState): void {
+    session.liveAssistantDraft = {
+      id: `codex-live-${session.threadId}`,
+      timestamp: new Date().toISOString(),
+      parts: [],
+      toolIndexById: new Map()
+    }
+  }
+
+  private ensureLiveAssistantDraft(session: CodexSessionState): CodexLiveAssistantDraft {
+    if (!session.liveAssistantDraft) {
+      this.resetLiveAssistantDraft(session)
+    }
+    return session.liveAssistantDraft!
+  }
+
+  private appendLiveAssistantText(
+    session: CodexSessionState,
+    kind: 'text' | 'reasoning',
+    text: string
+  ): void {
+    if (!text) return
+
+    const draft = this.ensureLiveAssistantDraft(session)
+    const lastPart = draft.parts[draft.parts.length - 1]
+    const timestamp = new Date().toISOString()
+
+    if (lastPart && lastPart.type === kind) {
+      lastPart.text += text
+      return
+    }
+
+    draft.parts.push({ type: kind, text, timestamp })
+  }
+
+  private upsertLiveAssistantTool(
+    session: CodexSessionState,
+    tool: {
+      callID: string
+      tool: string
+      state: {
+        status: 'running' | 'completed' | 'error'
+        input?: unknown
+        output?: unknown
+        error?: unknown
+      }
+    }
+  ): void {
+    if (!tool.callID) return
+
+    const draft = this.ensureLiveAssistantDraft(session)
+    const existingIndex = draft.toolIndexById.get(tool.callID)
+
+    if (existingIndex !== undefined) {
+      const existing = draft.parts[existingIndex]
+      if (existing && existing.type === 'tool') {
+        existing.tool = tool.tool || existing.tool
+        existing.state = {
+          ...existing.state,
+          ...tool.state,
+          ...(tool.state.input === undefined ? { input: existing.state.input } : {}),
+          ...(tool.state.output === undefined ? { output: existing.state.output } : {}),
+          ...(tool.state.error === undefined ? { error: existing.state.error } : {})
+        }
+      }
+      return
+    }
+
+    draft.toolIndexById.set(tool.callID, draft.parts.length)
+    draft.parts.push({
+      type: 'tool',
+      callID: tool.callID,
+      tool: tool.tool,
+      state: tool.state
+    })
+  }
+
+  private updateLiveAssistantDraftFromStreamEvent(
+    session: CodexSessionState,
+    streamEvent: { type?: string; data?: unknown }
+  ): void {
+    if (streamEvent.type !== 'message.part.updated') return
+
+    const data = asObject(streamEvent.data)
+    const part = asObject(data?.part)
+    if (!part) return
+
+    const partType = asString(part.type)
+    if (partType === 'text') {
+      const delta = asString(data?.delta) ?? asString(part.text) ?? ''
+      this.appendLiveAssistantText(session, 'text', delta)
+      return
+    }
+
+    if (partType === 'reasoning') {
+      const delta = asString(data?.delta) ?? asString(part.text) ?? ''
+      this.appendLiveAssistantText(session, 'reasoning', delta)
+      return
+    }
+
+    if (partType === 'tool') {
+      const state = asObject(part.state)
+      const statusValue = asString(state?.status)
+      const status =
+        statusValue === 'completed' || statusValue === 'error' ? statusValue : 'running'
+
+      this.upsertLiveAssistantTool(session, {
+        callID: asString(part.callID) ?? asString(part.id) ?? '',
+        tool: asString(part.tool) ?? 'unknown',
+        state: {
+          status,
+          ...(state?.input !== undefined ? { input: state.input } : {}),
+          ...(state?.output !== undefined ? { output: state.output } : {}),
+          ...(state?.error !== undefined ? { error: state.error } : {})
+        }
+      })
+    }
+  }
+
+  private cloneLiveAssistantDraftMessage(session: CodexSessionState): unknown | null {
+    const draft = session.liveAssistantDraft
+    if (!draft || draft.parts.length === 0) return null
+
+    return {
+      id: draft.id,
+      role: 'assistant',
+      parts: draft.parts.map((part) => {
+        if (part.type === 'text' || part.type === 'reasoning') {
+          return { ...part }
+        }
+
+        return {
+          type: 'tool',
+          callID: part.callID,
+          tool: part.tool,
+          state: { ...part.state }
+        }
+      }),
+      timestamp: draft.timestamp
+    }
+  }
+
   private waitForTurnCompletion(
     session: CodexSessionState,
     isComplete: () => boolean,
@@ -1385,6 +1569,7 @@ export class CodexImplementer implements AgentSdkImplementer {
         worktreePath,
         status: this.mapProviderStatus(providerSession.status),
         messages: [],
+        liveAssistantDraft: null,
         revertMessageID: null,
         revertDiff: null,
         titleGenerated: true
