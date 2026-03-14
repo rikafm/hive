@@ -147,6 +147,9 @@ function getToolIcon(name: string): React.JSX.Element {
   if (lowerName.includes('write') || lowerName === 'create') {
     return <FilePlus className={iconClass} />
   }
+  if (isFileChangeTool(lowerName)) {
+    return <Pencil className={iconClass} />
+  }
   if (lowerName.includes('edit') || lowerName.includes('replace') || lowerName.includes('patch')) {
     return <Pencil className={iconClass} />
   }
@@ -179,9 +182,6 @@ function getToolIcon(name: string): React.JSX.Element {
   }
   if (isFigmaTool(name)) {
     return <Figma className={cn(iconClass, FIGMA_ICON_COLOR)} />
-  }
-  if (isFileChangeTool(lowerName)) {
-    return <Pencil className={iconClass} />
   }
   // Default
   return <Terminal className={iconClass} />
@@ -357,6 +357,7 @@ function getToolRenderer(name: string): React.FC<ToolViewProps> {
   if (lower.includes('todowrite') || lower.includes('todo_write')) return TodoWriteToolView
   if (lower.includes('read') || lower === 'cat' || lower === 'view') return ReadToolView
   if (lower.includes('write') || lower === 'create') return WriteToolView
+  if (isFileChangeTool(lower)) return FileChangeToolView
   if (lower.includes('edit') || lower.includes('replace') || lower.includes('patch'))
     return EditToolView
   if (lower.includes('bash') || lower.includes('shell') || lower.includes('exec'))
@@ -373,7 +374,6 @@ function getToolRenderer(name: string): React.FC<ToolViewProps> {
   if (isLspTool(name)) return LspToolView
   // Figma: explicit fallback for now, will get a dedicated FigmaToolView later
   if (isFigmaTool(name)) return FallbackToolView
-  if (isFileChangeTool(lower)) return FileChangeToolView
   // Fallback
   return FallbackToolView
 }
@@ -474,6 +474,31 @@ function CollapsedContent({
         </span>
         {lineCount !== null && (
           <span className="text-muted-foreground/60 shrink-0 text-[10px]">{lineCount} lines</span>
+        )}
+      </>
+    )
+  }
+
+  // FileChange (Codex) — must be before Edit/Replace/Patch to avoid 'apply_patch' shadowing
+  if (isFileChangeTool(lowerName)) {
+    const changes = Array.isArray(input.changes)
+      ? (input.changes as Array<{ path: string; kind: { type: string } }>)
+      : []
+    const firstPath = changes[0]?.path || ''
+    const changeCount = changes.length
+    return (
+      <>
+        <span className="text-muted-foreground shrink-0">
+          <Pencil className="h-3.5 w-3.5" />
+        </span>
+        <span className="font-medium text-foreground shrink-0">Edit</span>
+        <span className="font-mono text-muted-foreground truncate min-w-0">
+          {shortenPath(firstPath, cwd)}
+        </span>
+        {changeCount > 1 && (
+          <span className="text-[10px] bg-blue-500/15 text-blue-500 dark:text-blue-400 rounded px-1 py-0.5 font-medium shrink-0">
+            +{changeCount - 1} more
+          </span>
         )}
       </>
     )
@@ -686,31 +711,6 @@ function CollapsedContent({
         >
           {getFigmaOperationLabel(operation)}
         </span>
-      </>
-    )
-  }
-
-  // FileChange (Codex)
-  if (isFileChangeTool(lowerName)) {
-    const changes = Array.isArray(input.changes)
-      ? (input.changes as Array<{ path: string; kind: { type: string } }>)
-      : []
-    const firstPath = changes[0]?.path || ''
-    const changeCount = changes.length
-    return (
-      <>
-        <span className="text-muted-foreground shrink-0">
-          <Pencil className="h-3.5 w-3.5" />
-        </span>
-        <span className="font-medium text-foreground shrink-0">Edit</span>
-        <span className="font-mono text-muted-foreground truncate min-w-0">
-          {shortenPath(firstPath, cwd)}
-        </span>
-        {changeCount > 1 && (
-          <span className="text-[10px] bg-blue-500/15 text-blue-500 dark:text-blue-400 rounded px-1 py-0.5 font-medium shrink-0">
-            +{changeCount - 1} more
-          </span>
-        )}
       </>
     )
   }
