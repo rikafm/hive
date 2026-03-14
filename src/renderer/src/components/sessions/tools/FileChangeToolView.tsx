@@ -31,6 +31,12 @@ function kindBadge(kind: FileChange['kind']) {
           Update
         </span>
       )
+    default:
+      return (
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-500/20 text-zinc-400">
+          {(kind as { type: string }).type}
+        </span>
+      )
   }
 }
 

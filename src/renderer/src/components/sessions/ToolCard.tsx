@@ -198,6 +198,18 @@ function getToolLabel(name: string, input: Record<string, unknown>, cwd?: string
     return `${completed}/${todos.length} completed`
   }
 
+  // Show file path for fileChange (Codex) — must be before generic file ops check
+  if (isFileChangeTool(lowerName)) {
+    const changes = Array.isArray(input.changes)
+      ? (input.changes as Array<{ path: string }>)
+      : []
+    if (changes.length > 0) {
+      const firstPath = changes[0]?.path || ''
+      const label = shortenPath(firstPath, cwd)
+      return changes.length > 1 ? `${label} +${changes.length - 1} more` : label
+    }
+  }
+
   // Show file path for file operations
   if (lowerName.includes('read') || lowerName.includes('write') || lowerName.includes('edit')) {
     const filePath = (input.filePath || input.file_path || input.path || '') as string
@@ -264,18 +276,6 @@ function getToolLabel(name: string, input: Record<string, unknown>, cwd?: string
   // Show operation for Figma tools
   if (isFigmaTool(name)) {
     return getFigmaOperationLabel(getFigmaOperation(name))
-  }
-
-  // Show file path for fileChange (Codex)
-  if (isFileChangeTool(lowerName)) {
-    const changes = Array.isArray(input.changes)
-      ? (input.changes as Array<{ path: string }>)
-      : []
-    if (changes.length > 0) {
-      const firstPath = changes[0]?.path || ''
-      const label = shortenPath(firstPath, cwd)
-      return changes.length > 1 ? `${label} +${changes.length - 1} more` : label
-    }
   }
 
   return ''
