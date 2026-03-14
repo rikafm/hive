@@ -497,6 +497,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   // stripAtMentions setting
   const stripAtMentions = useSettingsStore((state) => state.stripAtMentions)
   const codexFastMode = useSettingsStore((state) => state.codexFastMode)
+  const codexFastModeAccepted = useSettingsStore((state) => state.codexFastModeAccepted)
   const updateSetting = useSettingsStore((state) => state.updateSetting)
 
   const codexPromptOptions = useMemo(
@@ -4403,7 +4404,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
                 {sessionAgentSdk === 'codex' && (
                   <CodexFastToggle
                     enabled={codexFastMode}
+                    accepted={codexFastModeAccepted}
                     onToggle={() => updateSetting('codexFastMode', !codexFastMode)}
+                    onAccept={() => updateSetting('codexFastModeAccepted', true)}
                   />
                 )}
                 <AttachmentButton onAttach={handleAttach} />
