@@ -91,9 +91,8 @@ function FileDiffSection({ change }: { change: FileChange }) {
 
   const allLines = change.diff ? parseDiffLines(change.diff, change.kind.type) : []
   const needsTruncation = allLines.length > MAX_PREVIEW_LINES
-  const displayedLines = needsTruncation && !showAll
-    ? allLines.slice(0, MAX_PREVIEW_LINES)
-    : allLines
+  const displayedLines =
+    needsTruncation && !showAll ? allLines.slice(0, MAX_PREVIEW_LINES) : allLines
   const hiddenCount = allLines.length - displayedLines.length
 
   return (
@@ -176,10 +175,7 @@ export function FileChangeToolView({ input, error }: ToolViewProps) {
 
   if (!Array.isArray(changes) || changes.length === 0) {
     return (
-      <div
-        data-testid="file-change-tool-view"
-        className="text-muted-foreground text-xs italic"
-      >
+      <div data-testid="file-change-tool-view" className="text-muted-foreground text-xs italic">
         No file changes
       </div>
     )
