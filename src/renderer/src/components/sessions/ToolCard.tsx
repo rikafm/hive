@@ -798,6 +798,12 @@ const CompactFileToolCard = memo(function CompactFileToolCard({
   const isRunning = toolUse.status === 'pending' || toolUse.status === 'running'
   const isError = toolUse.status === 'error'
   const hasOutput = !!(toolUse.output || toolUse.error)
+  // FileChange tools carry their content in input.changes, not output
+  const hasExpandableContent =
+    hasOutput ||
+    (isFileChange &&
+      Array.isArray(toolUse.input.changes) &&
+      (toolUse.input.changes as unknown[]).length > 0)
 
   const Renderer = useMemo(() => getToolRenderer(toolUse.name), [toolUse.name])
 
@@ -836,13 +842,14 @@ const CompactFileToolCard = memo(function CompactFileToolCard({
     >
       {/* Compact single-line header */}
       <button
-        onClick={() => hasOutput && setIsExpanded(!isExpanded)}
+        onClick={() => hasExpandableContent && setIsExpanded(!isExpanded)}
         className={cn(
           'flex items-center gap-1.5 w-full py-0.5 text-left text-xs',
-          hasOutput && 'cursor-pointer hover:bg-accent/50 transition-colors rounded-sm',
-          !hasOutput && !isRunning && 'cursor-default'
+          hasExpandableContent &&
+            'cursor-pointer hover:bg-accent/50 transition-colors rounded-sm',
+          !hasExpandableContent && !isRunning && 'cursor-default'
         )}
-        disabled={!hasOutput && !isRunning}
+        disabled={!hasExpandableContent && !isRunning}
       >
         {icon}
         {useCollapsedContent ? (
@@ -864,7 +871,7 @@ const CompactFileToolCard = memo(function CompactFileToolCard({
       </button>
 
       {/* Expanded content */}
-      {isExpanded && hasOutput && (
+      {isExpanded && hasExpandableContent && (
         <div className="ml-5 mt-0.5 mb-1" data-testid="tool-output">
           <Renderer
             name={toolUse.name}
