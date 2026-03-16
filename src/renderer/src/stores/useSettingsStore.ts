@@ -74,13 +74,15 @@ export interface AppSettings {
   showUsageIndicator: boolean
 
   // Agent SDK
-  defaultAgentSdk: 'opencode' | 'claude-code' | 'terminal'
+  defaultAgentSdk: 'opencode' | 'claude-code' | 'codex' | 'terminal'
 
   // Setup
   initialSetupComplete: boolean
 
   // Chat
   stripAtMentions: boolean
+  codexFastMode: boolean
+  codexFastModeAccepted: boolean
 
   // Updates
   updateChannel: 'stable' | 'canary'
@@ -114,6 +116,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showUsageIndicator: true,
   defaultAgentSdk: 'opencode',
   stripAtMentions: true,
+  codexFastMode: false,
+  codexFastModeAccepted: false,
   updateChannel: 'stable',
   skippedUpdateVersion: null,
   initialSetupComplete: false,
@@ -142,7 +146,7 @@ interface SettingsState extends AppSettings {
   isLoading: boolean
 
   // Cached SDK availability (non-persisted, re-detected each launch)
-  availableAgentSdks: { opencode: boolean; claude: boolean } | null
+  availableAgentSdks: { opencode: boolean; claude: boolean; codex: boolean } | null
 
   // Actions
   openSettings: (section?: string) => void
@@ -222,6 +226,8 @@ function extractSettings(state: SettingsState): AppSettings {
     showUsageIndicator: state.showUsageIndicator,
     defaultAgentSdk: state.defaultAgentSdk,
     stripAtMentions: state.stripAtMentions,
+    codexFastMode: state.codexFastMode,
+    codexFastModeAccepted: state.codexFastModeAccepted,
     updateChannel: state.updateChannel,
     skippedUpdateVersion: state.skippedUpdateVersion,
     initialSetupComplete: state.initialSetupComplete,
@@ -402,6 +408,8 @@ export const useSettingsStore = create<SettingsState>()(
         defaultAgentSdk: state.defaultAgentSdk,
         activeSection: state.activeSection,
         stripAtMentions: state.stripAtMentions,
+        codexFastMode: state.codexFastMode,
+        codexFastModeAccepted: state.codexFastModeAccepted,
         updateChannel: state.updateChannel,
         skippedUpdateVersion: state.skippedUpdateVersion,
         initialSetupComplete: state.initialSetupComplete,
