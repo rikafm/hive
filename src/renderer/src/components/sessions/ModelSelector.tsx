@@ -37,15 +37,12 @@ function getVariantKeys(model: ModelInfo): string[] {
 
 interface ModelSelectorProps {
   sessionId?: string
-interface ModelSelectorProps {
-  sessionId?: string
   // Controlled mode (for settings)
   value?: { providerID: string; modelID: string; variant?: string } | null
   onChange?: (model: { providerID: string; modelID: string; variant?: string }) => void
 }
-}
 
-export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onChange }: ModelSelectorProps): React.JSX.Element {
+export function ModelSelector({ sessionId, value, onChange }: ModelSelectorProps): React.JSX.Element {
   // Read per-session model from session store (with global fallback)
   const session = useSessionStore((state) => {
     if (!sessionId) return null
@@ -70,7 +67,8 @@ export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onCha
           variant: session.model_variant ?? undefined
         }
       : null
-  // Use controlled value if provided (for settings), otherwise use session/global
+  // Use controlled value if provided (for settings), otherwise use session/global.
+  // value={null} means "no model configured" (distinct from value={undefined} which means uncontrolled).
   const selectedModel = value !== undefined ? value : (sessionModel ?? globalModel)
   const showModelProvider = useSettingsStore((s) => s.showModelProvider)
   const favoriteModels = useSettingsStore((s) => s.favoriteModels)
@@ -170,21 +168,31 @@ export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onCha
   }
 
   function handleSelectVariant(model: ModelInfo, variant: string): void {
-    useSettingsStore.getState().setModelVariantDefault(model.providerID, model.id, variant)
     const newModel = { providerID: model.providerID, modelID: model.id, variant }
-    
+
     // Use controlled onChange if provided (for settings), otherwise update store
     if (onChange) {
+      // In controlled mode, just notify parent - don't update global variant preference
       onChange(newModel)
-    } else if (sessionId) {
-      useSessionStore.getState().setSessionModel(sessionId, newModel)
     } else {
-      useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
+      // In uncontrolled mode, persist variant preference globally
+      useSettingsStore.getState().setModelVariantDefault(model.providerID, model.id, variant)
+      if (sessionId) {
+        useSessionStore.getState().setSessionModel(sessionId, newModel)
+      } else {
+        useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
+      }
     }
   }
 
+  // In controlled mode (value prop provided), null means "none configured"
+  const isControlled = value !== undefined
+
   function isActiveModel(model: ModelInfo): boolean {
     if (!selectedModel) {
+      // In controlled mode, null means nothing is selected
+      if (isControlled) return false
+      // In uncontrolled mode, fall back to system default
       return model.providerID === 'anthropic' && model.id === 'claude-opus-4-5-20251101'
     }
     return selectedModel.providerID === model.providerID && selectedModel.modelID === model.id
@@ -192,6 +200,7 @@ export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onCha
 
   // Find the currently selected model info
   const currentModel = useMemo((): ModelInfo | null => {
+    if (!selectedModel && isControlled) return null
     const modelID = selectedModel?.modelID || 'claude-opus-4-5-20251101'
     const providerID = selectedModel?.providerID || 'anthropic'
     for (const provider of providers) {
@@ -201,7 +210,7 @@ export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onCha
       }
     }
     return null
-  }, [selectedModel, providers])
+  }, [selectedModel, isControlled, providers])
 
   const providerPrefix = useMemo(() => {
     if (!showModelProvider) return null
@@ -224,21 +233,26 @@ export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onCha
     const nextIndex = (currentIndex + 1) % variantKeys.length
     const nextVariant = variantKeys[nextIndex]
 
-    useSettingsStore
-      .getState()
-      .setModelVariantDefault(currentModel.providerID, currentModel.id, nextVariant)
     const newModel = {
       providerID: currentModel.providerID,
       modelID: currentModel.id,
       variant: nextVariant
     }
+
     // Use controlled onChange if provided (for settings), otherwise update store
     if (onChange) {
+      // In controlled mode, just notify parent - don't update global variant preference
       onChange(newModel)
-    } else if (sessionId) {
-      useSessionStore.getState().setSessionModel(sessionId, newModel)
     } else {
-      useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
+      // In uncontrolled mode, persist variant preference globally
+      useSettingsStore
+        .getState()
+        .setModelVariantDefault(currentModel.providerID, currentModel.id, nextVariant)
+      if (sessionId) {
+        useSessionStore.getState().setSessionModel(sessionId, newModel)
+      } else {
+        useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
+      }
     }
     toast.success(`Variant: ${nextVariant}`)
   }, [selectedModel, currentModel, agentSdk, sessionId, onChange])
@@ -253,10 +267,12 @@ export function ModelSelector({ sessionId, worktreeId: _worktreeId, value, onCha
   // Determine display name for the pill
   const displayName = currentModel
     ? getDisplayName(currentModel)
-    : getDisplayName({
-        id: selectedModel?.modelID || 'claude-opus-4-5-20251101',
-        providerID: 'anthropic'
-      })
+    : isControlled && !selectedModel
+      ? 'Use global'
+      : getDisplayName({
+          id: selectedModel?.modelID || 'claude-opus-4-5-20251101',
+          providerID: 'anthropic'
+        })
 
   const filteredProviders = useMemo(() => {
     if (!filter.trim()) return providers
