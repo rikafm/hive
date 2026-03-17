@@ -60,3 +60,6 @@ scripts/*
 
 # Claude worktrees
 .claude/worktrees/
+
+# Superpowers brainstorm artifacts
+.superpowers/brainstorm/
