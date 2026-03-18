@@ -277,6 +277,11 @@ export function ProjectItem({
             onClick={handleClick}
             data-testid={`project-item-${project.id}`}
           >
+            {/* Project Hint Badge (visible in vim normal mode, left of chevron) */}
+            {!isEditing && projectHint && vimMode === 'normal' && (
+              <HintBadge code={projectHint} mode={hintMode} pendingChar={hintPendingChar} />
+            )}
+
             {/* Expand/Collapse Chevron */}
             <Button
               variant="ghost"
@@ -330,14 +335,9 @@ export function ProjectItem({
               </div>
             )}
 
-            {/* Hint Badge (visible when filter is active and search field is focused) */}
+            {/* Plus Hint Badge (visible when filter is active and search field is focused) */}
             {!isEditing && plusHint && (inputFocused || vimMode === 'normal') && (
               <HintBadge code={plusHint} mode={hintMode} pendingChar={hintPendingChar} />
-            )}
-
-            {/* Project Hint Badge (visible in vim normal mode) */}
-            {!isEditing && projectHint && vimMode === 'normal' && (
-              <HintBadge code={projectHint} mode={hintMode} pendingChar={hintPendingChar} />
             )}
 
             {/* Create Worktree Button (hidden in connection mode) */}
