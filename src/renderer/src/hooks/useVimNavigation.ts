@@ -96,12 +96,19 @@ export function useVimNavigation(): void {
       // --- Hint dispatch: pending mode (second char) ---
       // Must come before I/? handlers so pending state is resolved first
       if (hint.mode === 'pending' && hint.pendingChar) {
-        if (event.key === 'P') {
+        // Ignore bare modifier keys (Shift, Control, etc.) so the user can
+        // release the first-char key and then press Shift+P / Shift+D.
+        if (event.key === 'Shift' || event.key === 'Control' || event.key === 'Alt'
+          || event.key === 'Meta') {
+          return
+        }
+
+        if (event.key === 'P' || event.key === 'p') {
           hint.setActionMode(hint.actionMode === 'pin' ? 'select' : 'pin')
           event.preventDefault()
           return
         }
-        if (event.key === 'D') {
+        if (event.key === 'D' || event.key === 'd') {
           hint.setActionMode(hint.actionMode === 'archive' ? 'select' : 'archive')
           event.preventDefault()
           return

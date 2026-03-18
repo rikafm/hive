@@ -6,7 +6,7 @@ import { useConnectionStore } from '@/stores/useConnectionStore'
 import { gitToast } from '@/lib/toast'
 
 export const FIRST_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-export const SECOND_CHARS = 'abcdefghijklmnopqrstuvwxyz23456789'
+export const SECOND_CHARS = 'abcefghijklmnoqrstuvwxyz23456789'
 
 export interface HintTarget {
   kind: 'worktree' | 'plus' | 'project' | 'pinned-worktree' | 'pinned-connection' | 'connection'
