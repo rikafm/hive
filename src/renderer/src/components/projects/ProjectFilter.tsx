@@ -1,24 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { Search, X } from 'lucide-react'
 import { useHintStore } from '@/stores'
-import { useWorktreeStore } from '@/stores'
-import { useProjectStore } from '@/stores'
+import { dispatchHintAction } from '@/lib/hint-utils'
 
 interface ProjectFilterProps {
   value: string
   onChange: (value: string) => void
-}
-
-function dispatchHintAction(key: string): void {
-  if (key.startsWith('plus:')) {
-    const projectId = key.slice('plus:'.length)
-    window.dispatchEvent(new CustomEvent('hive:hint-plus', { detail: { projectId } }))
-  } else {
-    const target = useHintStore.getState().hintTargetMap.get(key)
-    if (!target) return
-    useWorktreeStore.getState().selectWorktree(key)
-    useProjectStore.getState().selectProject(target.projectId)
-  }
 }
 
 export function ProjectFilter({ value, onChange }: ProjectFilterProps): React.JSX.Element {
