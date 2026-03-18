@@ -46,3 +46,4 @@ export {
   normalizeUsage
 } from './useUsageStore'
 export { useHintStore } from './useHintStore'
+export { useVimModeStore } from './useVimModeStore'
