@@ -25,7 +25,7 @@ function Avatar({ user }: { user: PRReviewComment['user'] }): React.JSX.Element 
       <img
         src={user.avatarUrl}
         alt={login}
-        className="h-4 w-4 rounded-full shrink-0"
+        className="h-4 w-4 rounded-full shrink-0 bg-white"
         onError={() => setFailed(true)}
       />
     )

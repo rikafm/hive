@@ -21,7 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from '@/components/ui/dropdown-menu'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from '@/components/ui/popover'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { useLayoutStore } from '@/stores/useLayoutStore'
@@ -756,25 +756,67 @@ export function Header(): React.JSX.Element {
         )}
         {/* Create PR button — shown when no PR attached and not creating */}
         {!isConnectionMode && isGitHub && !hasAttachedPR && !isCreatingPR && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={handleCreatePR}
-              disabled={isOperating}
-              title="Create Pull Request"
-              data-testid="pr-button"
-            >
-              <GitPullRequest className="h-3.5 w-3.5 mr-1" />
-              {showVimHints ? (
-                <span>
-                  <span className="text-primary font-bold">P</span>R
-                </span>
-              ) : (
-                'PR'
-              )}
-            </Button>
+          <Popover open={prPickerOpen} onOpenChange={setPrPickerOpen}>
+            <PopoverAnchor asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={handleCreatePR}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setPrPickerOpen(true)
+                }}
+                disabled={isOperating}
+                title="Create Pull Request (right-click to attach existing)"
+                data-testid="pr-button"
+              >
+                <GitPullRequest className="h-3.5 w-3.5 mr-1" />
+                {showVimHints ? (
+                  <span>
+                    <span className="text-primary font-bold">P</span>R
+                  </span>
+                ) : (
+                  'PR'
+                )}
+              </Button>
+            </PopoverAnchor>
+            <PopoverContent align="end" className="w-80 p-0">
+              <div className="px-3 py-2 border-b">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Attach existing PR
+                </div>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {prListLoading ? (
+                  <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1" />
+                    Loading PRs...
+                  </div>
+                ) : prList.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                    No open PRs found
+                  </div>
+                ) : (
+                  prList.map((pr) => (
+                    <button
+                      key={pr.number}
+                      className={cn(
+                        'w-full text-left px-3 py-2 text-sm hover:bg-accent cursor-pointer',
+                        'flex items-center gap-2'
+                      )}
+                      onClick={() => handleSelectPR(pr)}
+                      data-testid={`pr-picker-item-${pr.number}`}
+                    >
+                      <span className="text-xs font-mono shrink-0">
+                        #{pr.number}
+                      </span>
+                      <span className="truncate">{pr.title}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -805,7 +847,7 @@ export function Header(): React.JSX.Element {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </>
+          </Popover>
         )}
         <Button
           variant="ghost"
