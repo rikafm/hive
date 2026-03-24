@@ -4097,7 +4097,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
         setHistoryIndex(null)
       }
 
-      if (value.startsWith('/') && value.length >= 1) {
+      if (value.startsWith('/') && !value.includes(' ')) {
         setShowSlashCommands(true)
       } else {
         setShowSlashCommands(false)
