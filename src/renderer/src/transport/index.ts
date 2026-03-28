@@ -5,6 +5,10 @@ import { createDbAdapter } from './graphql/adapters/db'
 import { createOpenCodeOpsAdapter } from './graphql/adapters/opencode-ops'
 import { createGitOpsAdapter } from './graphql/adapters/git-ops'
 import { createFileTreeOpsAdapter } from './graphql/adapters/file-tree-ops'
+import { createTerminalOpsAdapter } from './graphql/adapters/terminal-ops'
+import { createWorktreeOpsAdapter } from './graphql/adapters/worktree-ops'
+import { createProjectOpsAdapter } from './graphql/adapters/project-ops'
+import { createConnectionOpsAdapter } from './graphql/adapters/connection-ops'
 
 export interface TransportResult {
   mode: 'electron' | 'web'
@@ -29,7 +33,10 @@ export function installTransport(): TransportResult {
   window.opencodeOps = createOpenCodeOpsAdapter()
   window.gitOps = createGitOpsAdapter()
   window.fileTreeOps = createFileTreeOpsAdapter()
+  window.terminalOps = createTerminalOpsAdapter()
+  window.worktreeOps = createWorktreeOpsAdapter()
+  window.projectOps = createProjectOpsAdapter()
+  window.connectionOps = createConnectionOpsAdapter()
 
-  // Remaining adapters will be installed in Session 4
   return { mode, needsAuth: false }
 }
