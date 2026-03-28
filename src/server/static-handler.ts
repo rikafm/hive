@@ -21,8 +21,15 @@ export function createStaticHandler(
 
   return (req: IncomingMessage, res: ServerResponse): boolean => {
     const url = req.url ?? '/'
-    // Strip query string and hash
-    const pathname = decodeURIComponent(url.split('?')[0].split('#')[0])
+    // Strip query string and hash, decode URI components safely
+    let pathname: string
+    try {
+      pathname = decodeURIComponent(url.split('?')[0].split('#')[0])
+    } catch {
+      res.writeHead(400)
+      res.end()
+      return true
+    }
 
     // Pass through GraphQL and API routes
     if (pathname === '/graphql' || pathname.startsWith('/api/')) {
