@@ -68,7 +68,6 @@ function deepMerge<T extends Record<string, unknown>>(
 function cloneDefaults(): HeadlessConfig {
   return {
     ...DEFAULTS,
-    webRoot: DEFAULTS.webRoot,
     tls: { ...DEFAULTS.tls },
     security: { ...DEFAULTS.security, allowedIps: [...DEFAULTS.security.allowedIps] }
   }

@@ -116,6 +116,10 @@ export async function headlessBootstrap(opts: HeadlessBootstrapOpts): Promise<vo
     // Explicit webRoot from config
     if (existsSync(join(config.webRoot, 'index.html'))) {
       webRoot = config.webRoot
+    } else {
+      console.warn(
+        `Warning: webRoot "${config.webRoot}" does not contain index.html, falling back to API-only mode`
+      )
     }
   } else {
     // Default: look for bundled web UI next to server code
