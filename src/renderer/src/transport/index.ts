@@ -13,6 +13,11 @@ import { createSystemOpsAdapter } from './graphql/adapters/system-ops'
 import { createSettingsOpsAdapter } from './graphql/adapters/settings-ops'
 import { createFileOpsAdapter } from './graphql/adapters/file-ops'
 import { createScriptOpsAdapter } from './graphql/adapters/script-ops'
+import { createLoggingOpsAdapter } from './graphql/adapters/logging-ops'
+import { createUpdaterOpsAdapter } from './graphql/adapters/updater-ops'
+import { createUsageOpsAdapter } from './graphql/adapters/usage-ops'
+import { createAnalyticsOpsAdapter } from './graphql/adapters/analytics-ops'
+import { createKanbanAdapter } from './graphql/adapters/kanban'
 
 export interface TransportResult {
   mode: 'electron' | 'web'
@@ -45,6 +50,11 @@ export function installTransport(): TransportResult {
   window.settingsOps = createSettingsOpsAdapter()
   window.fileOps = createFileOpsAdapter()
   window.scriptOps = createScriptOpsAdapter()
+  window.loggingOps = createLoggingOpsAdapter()
+  window.updaterOps = createUpdaterOpsAdapter()
+  window.usageOps = createUsageOpsAdapter()
+  window.analyticsOps = createAnalyticsOpsAdapter()
+  window.kanban = createKanbanAdapter()
 
   return { mode, needsAuth: false }
 }
