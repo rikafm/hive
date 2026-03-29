@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Hammer,
   Map,
+  Sparkles,
   Send,
   Zap,
   ArrowRight,
@@ -39,11 +40,11 @@ import { useSessionStore } from '@/stores/useSessionStore'
 import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useProjectStore } from '@/stores/useProjectStore'
-import { resolveModelForSdk } from '@/stores/useSettingsStore'
+import { useSettingsStore, resolveModelForSdk } from '@/stores/useSettingsStore'
 import { notifyKanbanSessionSync } from '@/stores/store-coordination'
 import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/message-send-times'
 import { snapshotTokenBaseline } from '@/lib/token-baselines'
-import { PLAN_MODE_PREFIX } from '@/lib/constants'
+import { PLAN_MODE_PREFIX, SUPER_PLAN_MODE_PREFIX, isPlanLike } from '@/lib/constants'
 import { parseAttachmentUrl } from '@/lib/attachment-utils'
 import type { AttachmentInfo } from '@/lib/attachment-utils'
 import { toast } from '@/lib/toast'
@@ -55,7 +56,7 @@ import type { KanbanTicket, KanbanTicketUpdate } from '../../../../main/db/types
 
 // ── Types ───────────────────────────────────────────────────────────
 type ModalMode = 'edit' | 'plan_review' | 'review' | 'error' | 'question'
-type FollowUpMode = 'build' | 'plan'
+type FollowUpMode = 'build' | 'plan' | 'super-plan'
 
 /** Standard (non-dual-pane) DialogContent className per modal mode */
 const MODE_DIALOG_CLASS: Record<ModalMode, string> = {
@@ -175,8 +176,17 @@ async function sendFollowupToSession(opts: {
 
   // Claude Code & Codex handle plan mode via the SDK — don't prepend the text prefix
   const skipPrefix = session.agent_sdk === 'claude-code' || session.agent_sdk === 'codex'
-  const modePrefix = opts.followUpMode === 'plan' && !skipPrefix ? PLAN_MODE_PREFIX : ''
+  const modePrefix =
+    opts.followUpMode === 'super-plan' ? SUPER_PLAN_MODE_PREFIX
+    : opts.followUpMode === 'plan' && !skipPrefix ? PLAN_MODE_PREFIX
+    : ''
   const fullPrompt = modePrefix + opts.prompt
+
+  // Auto-revert super-plan → plan immediately (one-shot mode).
+  // The prefix is already captured in fullPrompt above.
+  if (opts.followUpMode === 'super-plan') {
+    useSessionStore.getState().setSessionMode(opts.sessionId, 'plan')
+  }
 
   messageSendTimes.set(opts.sessionId, Date.now())
   userExplicitSendTimes.set(opts.sessionId, Date.now())
@@ -184,7 +194,7 @@ async function sendFollowupToSession(opts: {
   lastSendMode.set(opts.sessionId, opts.followUpMode)
   useWorktreeStatusStore
     .getState()
-    .setSessionStatus(opts.sessionId, opts.followUpMode === 'plan' ? 'planning' : 'working')
+    .setSessionStatus(opts.sessionId, isPlanLike(opts.followUpMode) ? 'planning' : 'working')
 
   // Resolve model AFTER setSessionMode (which may have applied a mode-specific default)
   const model = resolveSessionModel(opts.sessionId)
@@ -208,6 +218,7 @@ async function sendFollowupToSession(opts: {
 
   // Update ticket mode only AFTER successful prompt — avoids stale state on failure
   await opts.updateTicket(opts.ticketId, opts.projectId, { mode: opts.followUpMode, plan_ready: false })
+
 }
 
 /** Determine what mode the modal should operate in */
@@ -792,9 +803,15 @@ function PlanReviewModeContent({
 
   const planContent = pendingPlan?.planContent ?? ticket.description ?? ''
 
+  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
+
   const toggleMode = useCallback(() => {
-    setFollowUpMode((prev) => (prev === 'build' ? 'plan' : 'build'))
-  }, [])
+    setFollowUpMode((prev) =>
+      superPlanModeEnabled
+        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
+        : prev === 'build' ? 'plan' : 'build'
+    )
+  }, [superPlanModeEnabled])
 
   // Tab key toggles mode
   useEffect(() => {
@@ -1155,11 +1172,13 @@ function PlanReviewModeContent({
               'border select-none',
               followUpMode === 'build'
                 ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20'
-                : 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                : followUpMode === 'plan'
+                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                  : 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20'
             )}
           >
-            {followUpMode === 'build' ? <Hammer className="h-3 w-3" /> : <Map className="h-3 w-3" />}
-            <span>{followUpMode === 'build' ? 'Build' : 'Plan'}</span>
+            {followUpMode === 'build' ? <Hammer className="h-3 w-3" /> : followUpMode === 'plan' ? <Map className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+            <span>{followUpMode === 'build' ? 'Build' : followUpMode === 'plan' ? 'Plan' : 'Super Plan'}</span>
           </button>
         </div>
         <div className="flex gap-2 items-end">
@@ -1276,9 +1295,15 @@ function ReviewModeContent({
     ticket.worktree_id ? (s.scriptStates[ticket.worktree_id]?.runRunning ?? false) : false
   )
 
+  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
+
   const toggleMode = useCallback(() => {
-    setFollowUpMode((prev) => (prev === 'build' ? 'plan' : 'build'))
-  }, [])
+    setFollowUpMode((prev) =>
+      superPlanModeEnabled
+        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
+        : prev === 'build' ? 'plan' : 'build'
+    )
+  }, [superPlanModeEnabled])
 
   // Tab key toggles mode
   useEffect(() => {
@@ -1414,8 +1439,8 @@ function ReviewModeContent({
     return () => window.removeEventListener('keydown', handler, true)
   }, [hasRunScript, runRunning, handleRunScript, handleStopScript])
 
-  const ModeIcon = followUpMode === 'build' ? Hammer : Map
-  const modeLabel = followUpMode === 'build' ? 'Build' : 'Plan'
+  const ModeIcon = followUpMode === 'build' ? Hammer : followUpMode === 'plan' ? Map : Sparkles
+  const modeLabel = followUpMode === 'build' ? 'Build' : followUpMode === 'plan' ? 'Plan' : 'Super Plan'
 
   return (
     <>
@@ -1461,7 +1486,9 @@ function ReviewModeContent({
               'border select-none',
               followUpMode === 'build'
                 ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20'
-                : 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                : followUpMode === 'plan'
+                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                  : 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20'
             )}
           >
             <ModeIcon className="h-3 w-3" />
@@ -1562,9 +1589,15 @@ function ErrorModeContent({
     )
   )
 
+  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
+
   const toggleMode = useCallback(() => {
-    setFollowUpMode((prev) => (prev === 'build' ? 'plan' : 'build'))
-  }, [])
+    setFollowUpMode((prev) =>
+      superPlanModeEnabled
+        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
+        : prev === 'build' ? 'plan' : 'build'
+    )
+  }, [superPlanModeEnabled])
 
   // ── Send followup for error retry ─────────────────────────────────
   const handleSendFollowup = useCallback(async () => {
@@ -1605,8 +1638,8 @@ function ErrorModeContent({
     [handleSendFollowup]
   )
 
-  const ModeIcon = followUpMode === 'build' ? Hammer : Map
-  const modeLabel = followUpMode === 'build' ? 'Build' : 'Plan'
+  const ModeIcon = followUpMode === 'build' ? Hammer : followUpMode === 'plan' ? Map : Sparkles
+  const modeLabel = followUpMode === 'build' ? 'Build' : followUpMode === 'plan' ? 'Plan' : 'Super Plan'
 
   return (
     <>
@@ -1658,7 +1691,9 @@ function ErrorModeContent({
               'border select-none',
               followUpMode === 'build'
                 ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20'
-                : 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                : followUpMode === 'plan'
+                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                  : 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20'
             )}
           >
             <ModeIcon className="h-3 w-3" />
