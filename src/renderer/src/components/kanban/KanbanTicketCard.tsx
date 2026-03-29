@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X } from 'lucide-react'
+import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X, FileText, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import {
@@ -28,6 +28,8 @@ import { setKanbanDragData, useKanbanStore } from '@/stores/useKanbanStore'
 import { useScriptStore } from '@/stores/useScriptStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useQuestionStore } from '@/stores/useQuestionStore'
+import { usePinnedStore } from '@/stores/usePinnedStore'
+import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { useSessionTimer } from '@/hooks/useSessionTimer'
 import type { KanbanTicket } from '../../../../main/db/types'
 
@@ -120,6 +122,14 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
         if (!ticket.worktree_id) return false
         return s.scriptStates[ticket.worktree_id]?.runRunning ?? false
       },
+      [ticket.worktree_id]
+    )
+  )
+
+  // ── Pin state for the assigned worktree ─────────────────────────
+  const isPinned = usePinnedStore(
+    useCallback(
+      (s) => (ticket.worktree_id ? s.pinnedWorktreeIds.has(ticket.worktree_id) : false),
       [ticket.worktree_id]
     )
   )
@@ -246,6 +256,20 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
       toast.error('Failed to unassign worktree')
     }
   }, [ticket.id, ticket.project_id])
+
+  const handleTogglePin = useCallback(async () => {
+    if (!ticket.worktree_id) return
+    if (isPinned) {
+      await usePinnedStore.getState().unpinWorktree(ticket.worktree_id)
+    } else {
+      await usePinnedStore.getState().pinWorktree(ticket.worktree_id)
+    }
+  }, [isPinned, ticket.worktree_id])
+
+  const handleEditContext = useCallback(() => {
+    if (!ticket.worktree_id) return
+    useFileViewerStore.getState().openContextEditor(ticket.worktree_id)
+  }, [ticket.worktree_id])
 
   return (
     <>
@@ -397,6 +421,28 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
               <ExternalLink className="h-3.5 w-3.5" />
               Jump to session
             </ContextMenuItem>
+          )}
+
+          {/* Worktree actions: edit context & pin/unpin (when worktree assigned) */}
+          {ticket.worktree_id && (
+            <>
+              <ContextMenuItem
+                data-testid="ctx-edit-context"
+                onClick={handleEditContext}
+                className="gap-2"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Edit Context
+              </ContextMenuItem>
+              <ContextMenuItem
+                data-testid="ctx-toggle-pin"
+                onClick={handleTogglePin}
+                className="gap-2"
+              >
+                {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                {isPinned ? 'Unpin worktree' : 'Pin worktree'}
+              </ContextMenuItem>
+            </>
           )}
 
           <ContextMenuSeparator />
