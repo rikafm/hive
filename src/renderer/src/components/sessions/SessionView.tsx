@@ -6,6 +6,7 @@ import { ProviderIcon } from '@/components/ui/provider-icon'
 import { toast } from '@/lib/toast'
 import { MessageRenderer } from './MessageRenderer'
 import { ModeToggle } from './ModeToggle'
+import { SuperToggle } from './SuperToggle'
 import { ModelSelector } from './ModelSelector'
 import { QueuedMessageBubble } from './QueuedMessageBubble'
 import { ContextIndicator } from './ContextIndicator'
@@ -4928,8 +4929,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
             )}
           >
             {/* Top row: mode toggle */}
-            <div className="px-3 pt-2.5 pb-1">
+            <div className="px-3 pt-2.5 pb-1 flex items-center gap-1.5">
               <ModeToggle sessionId={sessionId} />
+              <SuperToggle sessionId={sessionId} />
             </div>
 
             {/* Attachment previews */}
