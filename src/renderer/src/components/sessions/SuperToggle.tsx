@@ -31,7 +31,7 @@ export function SuperToggle({ sessionId }: SuperToggleProps): React.JSX.Element 
           'flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors',
           'border select-none whitespace-nowrap',
           isOn
-            ? 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20'
+            ? 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20 super-sparkle'
             : 'bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground'
         )}
       >
