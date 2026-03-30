@@ -40,7 +40,7 @@ import { useSessionStore } from '@/stores/useSessionStore'
 import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useProjectStore } from '@/stores/useProjectStore'
-import { useSettingsStore, resolveModelForSdk } from '@/stores/useSettingsStore'
+import { resolveModelForSdk } from '@/stores/useSettingsStore'
 import { notifyKanbanSessionSync } from '@/stores/store-coordination'
 import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/message-send-times'
 import { snapshotTokenBaseline } from '@/lib/token-baselines'
@@ -803,15 +803,9 @@ function PlanReviewModeContent({
 
   const planContent = pendingPlan?.planContent ?? ticket.description ?? ''
 
-  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
-
   const toggleMode = useCallback(() => {
-    setFollowUpMode((prev) =>
-      superPlanModeEnabled
-        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
-        : prev === 'build' ? 'plan' : 'build'
-    )
-  }, [superPlanModeEnabled])
+    setFollowUpMode((prev) => prev === 'build' ? 'plan' : 'build')
+  }, [])
 
   // Tab key toggles mode
   useEffect(() => {
@@ -1295,15 +1289,9 @@ function ReviewModeContent({
     ticket.worktree_id ? (s.scriptStates[ticket.worktree_id]?.runRunning ?? false) : false
   )
 
-  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
-
   const toggleMode = useCallback(() => {
-    setFollowUpMode((prev) =>
-      superPlanModeEnabled
-        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
-        : prev === 'build' ? 'plan' : 'build'
-    )
-  }, [superPlanModeEnabled])
+    setFollowUpMode((prev) => prev === 'build' ? 'plan' : 'build')
+  }, [])
 
   // Tab key toggles mode
   useEffect(() => {
@@ -1589,15 +1577,9 @@ function ErrorModeContent({
     )
   )
 
-  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
-
   const toggleMode = useCallback(() => {
-    setFollowUpMode((prev) =>
-      superPlanModeEnabled
-        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
-        : prev === 'build' ? 'plan' : 'build'
-    )
-  }, [superPlanModeEnabled])
+    setFollowUpMode((prev) => prev === 'build' ? 'plan' : 'build')
+  }, [])
 
   // ── Send followup for error retry ─────────────────────────────────
   const handleSendFollowup = useCallback(async () => {
