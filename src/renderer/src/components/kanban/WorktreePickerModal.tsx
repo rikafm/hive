@@ -187,20 +187,9 @@ export function WorktreePickerModal({
   useEffect(() => {
     if (open) {
       setMode('build')
-      // Auto-select: prefer ticket's pre-assigned worktree, then global selection
-      const { selectedWorktreeId: currentId, worktreesByProject } =
-        useWorktreeStore.getState()
-      const projectWts = worktreesByProject.get(projectId) ?? []
-
-      if (ticket.worktree_id && projectWts.some((wt) => wt.id === ticket.worktree_id)) {
-        // Ticket has a pre-assigned worktree that still exists — select it
-        setSelectedWorktreeId(ticket.worktree_id)
-      } else {
-        // Fall back to the globally selected worktree if it belongs to this project
-        const match = currentId ? projectWts.find((wt) => wt.id === currentId) : null
-        setSelectedWorktreeId(match ? currentId : null)
-      }
-      setIsNewWorktree(false)
+      // Default to "New worktree" — it's the most common choice when starting work
+      setSelectedWorktreeId(null)
+      setIsNewWorktree(true)
       setPromptText(buildPrompt('build', ticket))
       setIsSending(false)
       setSelectedModel(null)
