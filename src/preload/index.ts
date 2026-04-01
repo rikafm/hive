@@ -1810,7 +1810,9 @@ const kanban = {
     reorder: (id: string, sortOrder: number) =>
       ipcRenderer.invoke('kanban:ticket:reorder', id, sortOrder),
     getBySession: (sessionId: string) =>
-      ipcRenderer.invoke('kanban:ticket:getBySession', sessionId)
+      ipcRenderer.invoke('kanban:ticket:getBySession', sessionId),
+    addTokens: (id: string, tokens: number) =>
+      ipcRenderer.invoke('kanban:ticket:addTokens', id, tokens),
   },
   simpleMode: {
     toggle: (projectId: string, enabled: boolean) =>

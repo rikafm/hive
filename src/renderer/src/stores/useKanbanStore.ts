@@ -452,6 +452,23 @@ export const useKanbanStore = create<KanbanState>()(
                       .catch(() => {})
                   }
                 }
+                // Accumulate token delta to ticket's persistent total
+                if (event.tokenDelta && event.tokenDelta > 0) {
+                  window.kanban.ticket.addTokens(ticket.id, event.tokenDelta)
+                    .then((updated) => {
+                      if (updated) {
+                        set((state) => {
+                          const next = new Map(state.tickets)
+                          const tickets = (next.get(projectId) ?? []).map((t) =>
+                            t.id === ticket.id ? { ...t, total_tokens: updated.total_tokens } : t
+                          )
+                          next.set(projectId, tickets)
+                          return { tickets: next }
+                        })
+                      }
+                    })
+                    .catch(() => {})
+                }
                 break
               }
 
