@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useKanbanStore } from '@/stores/useKanbanStore'
-import { useConnectionStore } from '@/stores'
+import { useConnectionStore, useProjectStore } from '@/stores'
+import { usePinnedStore } from '@/stores/usePinnedStore'
 import { parseAttachmentUrl } from '@/lib/attachment-utils'
 import type { AttachmentInfo } from '@/lib/attachment-utils'
 import { toast } from '@/lib/toast'
@@ -29,10 +30,11 @@ interface TicketCreateModalProps {
   onOpenChange: (open: boolean) => void
   projectId: string
   connectionId?: string
+  isPinnedMode?: boolean
 }
 
 // ── Component ───────────────────────────────────────────────────────
-export function TicketCreateModal({ open, onOpenChange, projectId, connectionId }: TicketCreateModalProps) {
+export function TicketCreateModal({ open, onOpenChange, projectId, connectionId, isPinnedMode }: TicketCreateModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [showPreview, setShowPreview] = useState(false)
@@ -61,6 +63,22 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId 
     }, [])
   }, [connectionId, connections])
 
+  const pinnedProjectIds = usePinnedStore((s) => s.pinnedProjectIds)
+  const allProjects = useProjectStore((s) => s.projects)
+  const pinnedProjects = useMemo(() => {
+    if (!isPinnedMode) return []
+    return [...pinnedProjectIds]
+      .map((pid) => {
+        const project = allProjects.find((p) => p.id === pid)
+        return project ? { id: pid, name: project.name } : null
+      })
+      .filter((p): p is { id: string; name: string } => p !== null)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [isPinnedMode, pinnedProjectIds, allProjects])
+
+  const isMultiProjectMode = isConnectionMode || !!isPinnedMode
+  const availableProjects = isConnectionMode ? connectionProjects : pinnedProjects
+
   // Allow natural Tab navigation between form fields — block SessionView's
   // global capture-phase Tab handler which would toggle Build/Plan mode instead.
   useEffect(() => {
@@ -88,11 +106,11 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId 
       setShowAttachInput(false)
       setAttachUrl('')
       setIsCreating(false)
-      setSelectedProjectId(connectionProjects[0]?.id ?? '')
+      setSelectedProjectId(availableProjects[0]?.id ?? '')
       // Auto-focus the title input after dialog animation
       setTimeout(() => titleInputRef.current?.focus(), 50)
     }
-  }, [open, connectionProjects])
+  }, [open, availableProjects])
 
   // ── Attachment handling ────────────────────────────────────────────
   const detectedAttachment = attachUrl.trim() ? parseAttachmentUrl(attachUrl.trim()) : null
@@ -115,7 +133,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId 
   const handleCreate = useCallback(async () => {
     if (!title.trim() || isCreating) return
 
-    const targetProjectId = isConnectionMode ? selectedProjectId : projectId
+    const targetProjectId = isMultiProjectMode ? selectedProjectId : projectId
     if (!targetProjectId) return
 
     setIsCreating(true)
@@ -134,7 +152,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId 
     } finally {
       setIsCreating(false)
     }
-  }, [title, description, attachments, isCreating, createTicket, projectId, selectedProjectId, isConnectionMode, onOpenChange])
+  }, [title, description, attachments, isCreating, createTicket, projectId, selectedProjectId, isMultiProjectMode, onOpenChange])
 
   const handleCancel = useCallback(() => {
     onOpenChange(false)
@@ -164,8 +182,8 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId 
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Project picker (connection mode only) */}
-          {isConnectionMode && connectionProjects.length > 0 && (
+          {/* Project picker (connection mode or pinned mode) */}
+          {isMultiProjectMode && availableProjects.length > 0 && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Project
@@ -175,7 +193,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId 
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
               >
-                {connectionProjects.map((p) => (
+                {availableProjects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>

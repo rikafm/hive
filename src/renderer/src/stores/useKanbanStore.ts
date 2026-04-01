@@ -12,6 +12,7 @@ import {
 } from './store-coordination'
 import { isPlanLike } from '../lib/constants'
 import { useConnectionStore } from './useConnectionStore'
+import { usePinnedStore } from './usePinnedStore'
 
 // ── Shared drag state (module-level, avoids DataTransfer issues in Electron) ──
 export interface KanbanDragData {
@@ -124,6 +125,13 @@ interface KanbanState {
   loadTicketsForConnection: (connectionId: string) => Promise<void>
   getTicketsByColumnForConnection: (connectionId: string, column: KanbanTicketColumn) => KanbanTicket[]
 
+  // ── Pinned board accessors ──────────────────────────────────────────
+  isPinnedBoardActive: boolean
+  togglePinnedBoard: () => void
+  loadTicketsForPinnedProjects: () => Promise<void>
+  getTicketsByColumnForPinned: (column: KanbanTicketColumn) => KanbanTicket[]
+  getPinnedProjectIdsArray: () => string[]
+
   // ── Helpers ────────────────────────────────────────────────────────
   computeSortOrder: (tickets: KanbanTicket[], targetIndex: number) => number
 }
@@ -135,6 +143,7 @@ export const useKanbanStore = create<KanbanState>()(
       tickets: new Map(),
       isLoading: false,
       isBoardViewActive: false,
+      isPinnedBoardActive: false,
       simpleModeByProject: {} as Record<string, boolean>,
       selectedTicketId: null,
       isDragging: false,
@@ -327,7 +336,10 @@ export const useKanbanStore = create<KanbanState>()(
           showArchivedByProject: { ...state.showArchivedByProject, [projectId]: show }
         }))
         // Re-fetch tickets with updated archive visibility
-        get().loadTickets(projectId)
+        // (multi-project boards use '' as key and re-fetch via their own effect)
+        if (projectId) {
+          get().loadTickets(projectId)
+        }
       },
 
       // ── moveTicket (optimistic) ──────────────────────────────────
@@ -552,7 +564,7 @@ export const useKanbanStore = create<KanbanState>()(
 
         set({ isLoading: true })
         try {
-          const includeArchived = (pid: string) => get().showArchivedByProject[pid] ?? false
+          const includeArchived = (pid: string) => get().showArchivedByProject[pid] ?? get().showArchivedByProject[''] ?? false
           const results = await Promise.all(
             projectIds.map((pid) => window.kanban.ticket.getByProject(pid, includeArchived(pid)))
           )
@@ -580,6 +592,51 @@ export const useKanbanStore = create<KanbanState>()(
         return merged
       },
 
+      // ── togglePinnedBoard ────────────────────────────────────────
+      togglePinnedBoard: () => {
+        set((state) => ({ isPinnedBoardActive: !state.isPinnedBoardActive }))
+      },
+
+      // ── loadTicketsForPinnedProjects ─────────────────────────────
+      loadTicketsForPinnedProjects: async () => {
+        const projectIds = [...usePinnedStore.getState().pinnedProjectIds]
+        if (projectIds.length === 0) return
+
+        set({ isLoading: true })
+        try {
+          const includeArchived = (pid: string) => get().showArchivedByProject[pid] ?? get().showArchivedByProject[''] ?? false
+          const results = await Promise.all(
+            projectIds.map((pid) => window.kanban.ticket.getByProject(pid, includeArchived(pid)))
+          )
+
+          // Batch update all projects at once
+          set((state) => {
+            const newTickets = new Map(state.tickets)
+            projectIds.forEach((pid, i) => {
+              newTickets.set(pid, results[i])
+            })
+            return { tickets: newTickets }
+          })
+        } catch (error) {
+          console.error('Failed to load tickets for pinned projects:', error)
+        } finally {
+          set({ isLoading: false })
+        }
+      },
+
+      // ── getTicketsByColumnForPinned ──────────────────────────────
+      getTicketsByColumnForPinned: (column: KanbanTicketColumn): KanbanTicket[] => {
+        const projectIds = [...usePinnedStore.getState().pinnedProjectIds]
+        const merged = projectIds.flatMap((pid) => get().getTicketsByColumn(pid, column))
+        merged.sort((a, b) => a.sort_order - b.sort_order)
+        return merged
+      },
+
+      // ── getPinnedProjectIdsArray ─────────────────────────────────
+      getPinnedProjectIdsArray: (): string[] => {
+        return [...usePinnedStore.getState().pinnedProjectIds].sort()
+      },
+
       // ── computeSortOrder ─────────────────────────────────────────
       computeSortOrder: (tickets: KanbanTicket[], targetIndex: number): number => {
         if (tickets.length === 0) return 0
@@ -605,6 +662,7 @@ export const useKanbanStore = create<KanbanState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         isBoardViewActive: state.isBoardViewActive,
+        isPinnedBoardActive: state.isPinnedBoardActive,
         simpleModeByProject: state.simpleModeByProject
       })
     }

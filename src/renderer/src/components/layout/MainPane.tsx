@@ -12,6 +12,7 @@ import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { useLayoutStore } from '@/stores/useLayoutStore'
 import { useKanbanStore } from '@/stores/useKanbanStore'
 import { useProjectStore } from '@/stores/useProjectStore'
+import { usePinnedStore } from '@/stores/usePinnedStore'
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 
 const MonacoDiffView = lazy(() => import('@/components/diff/MonacoDiffView'))
@@ -36,6 +37,8 @@ export function MainPane({ children }: MainPaneProps): React.JSX.Element {
   const closedTerminalSessionIds = useSessionStore((state) => state.closedTerminalSessionIds)
   const ghosttyOverlaySuppressed = useLayoutStore((state) => state.ghosttyOverlaySuppressed)
   const isBoardViewActive = useKanbanStore((state) => state.isBoardViewActive)
+  const isPinnedBoardActive = useKanbanStore((state) => state.isPinnedBoardActive)
+  const pinnedStoreLoaded = usePinnedStore((state) => state.loaded)
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId)
   const selectedProjectPath = useProjectStore((state) =>
     state.projects.find((p) => p.id === state.selectedProjectId)?.path ?? ''
@@ -163,6 +166,12 @@ export function MainPane({ children }: MainPaneProps): React.JSX.Element {
   const renderContent = () => {
     if (children) {
       return children
+    }
+
+    // Pinned projects board view (independent of project/connection selection)
+    // Wait for pinned store to load so we don't flash an empty state on startup.
+    if (isPinnedBoardActive && pinnedStoreLoaded && !activeFilePath && !activeDiff && !contextEditorWorktreeId) {
+      return <KanbanBoard isPinnedMode={true} />
     }
 
     // No worktree or connection selected - show welcome message

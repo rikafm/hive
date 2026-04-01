@@ -65,14 +65,19 @@ interface KanbanTicketCardProps {
   isArchived?: boolean
   /** When viewing a connection board, the connection ID for project tag + jump-to-session */
   connectionId?: string
+  /** When viewing the pinned board (multi-project), show project tags */
+  isPinnedMode?: boolean
 }
 
 export const KanbanTicketCard = memo(function KanbanTicketCard({
   ticket,
   index = 0,
   isArchived = false,
-  connectionId
+  connectionId,
+  isPinnedMode
 }: KanbanTicketCardProps) {
+  const isMultiProjectMode = !!connectionId || !!isPinnedMode
+
   const [isDragging, setIsDragging] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showWorktreePicker, setShowWorktreePicker] = useState(false)
@@ -102,21 +107,31 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
   const projectName = useProjectStore(
     useCallback(
       (state) => {
-        if (!connectionId) return null
+        if (!isMultiProjectMode) return null
         return state.projects.find((p) => p.id === ticket.project_id)?.name ?? null
       },
-      [connectionId, ticket.project_id]
+      [isMultiProjectMode, ticket.project_id]
     )
   )
 
   const projectTag = useMemo(() => {
-    if (!connectionId || !projectName) return null
-    const connectionProjectIds = useKanbanStore.getState().getConnectionProjectIds(connectionId)
-    return {
-      name: projectName,
-      color: getProjectColor(ticket.project_id, connectionProjectIds)
+    if (!projectName) return null
+    if (connectionId) {
+      const connectionProjectIds = useKanbanStore.getState().getConnectionProjectIds(connectionId)
+      return {
+        name: projectName,
+        color: getProjectColor(ticket.project_id, connectionProjectIds)
+      }
     }
-  }, [connectionId, projectName, ticket.project_id])
+    if (isPinnedMode) {
+      const pinnedProjectIds = useKanbanStore.getState().getPinnedProjectIdsArray()
+      return {
+        name: projectName,
+        color: getProjectColor(ticket.project_id, pinnedProjectIds)
+      }
+    }
+    return null
+  }, [connectionId, isPinnedMode, projectName, ticket.project_id])
 
   // ── Detect connection session on project board ──────────────────
   // Selector returns a primitive (string | null) to avoid Zustand infinite
@@ -322,6 +337,7 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
     if (!ticket.current_session_id) return
     const kanbanStore = useKanbanStore.getState()
     if (kanbanStore.isBoardViewActive) kanbanStore.toggleBoardView()
+    if (kanbanStore.isPinnedBoardActive) kanbanStore.togglePinnedBoard()
     if (connectionId) {
       // Connection mode: navigate to the connection and set session
       useConnectionStore.getState().selectConnection(connectionId)
@@ -339,10 +355,15 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
         useSessionStore.getState().setActiveWorktree(ticket.worktree_id)
         useSessionStore.getState().setActiveSession(ticket.current_session_id)
       } else {
+        // In pinned mode the current project context may not match the ticket's project;
+        // navigate to it so the user lands in the right project.
+        if (isPinnedMode && ticket.project_id) {
+          useProjectStore.getState().selectProject(ticket.project_id)
+        }
         useSessionStore.getState().setActiveSession(ticket.current_session_id)
       }
     }
-  }, [ticket.current_session_id, ticket.worktree_id, connectionId, connectionSession])
+  }, [ticket.current_session_id, ticket.worktree_id, ticket.project_id, connectionId, connectionSession, isPinnedMode])
 
   const isSimpleTicket = ticket.current_session_id === null
   const isFlowTicket = ticket.current_session_id !== null

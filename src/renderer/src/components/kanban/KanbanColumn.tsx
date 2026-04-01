@@ -49,9 +49,10 @@ interface KanbanColumnProps {
   archivedTickets?: KanbanTicket[]
   projectId: string
   connectionId?: string
+  isPinnedMode?: boolean
 }
 
-export function KanbanColumn({ column, tickets, archivedTickets, projectId, connectionId }: KanbanColumnProps) {
+export function KanbanColumn({ column, tickets, archivedTickets, projectId, connectionId, isPinnedMode }: KanbanColumnProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -67,15 +68,17 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
   const isDoneColumn = column === 'done'
   const isTodoColumn = column === 'todo'
   const isInProgressColumn = column === 'in_progress'
+  const isMultiProjectMode = !!connectionId || !!isPinnedMode
 
-  // ── Connection-mode helpers ────────────────────────────────────────
-  // In connection mode, tickets come from different projects, so we look
-  // up each ticket's own project_id instead of using the column-level prop.
+  // ── Multi-project helpers ─────────────────────────────────────────
+  // In multi-project mode (connection or pinned), tickets come from different
+  // projects, so we look up each ticket's own project_id instead of using
+  // the column-level prop.
 
   const findTicket = useCallback(
     (ticketId: string): KanbanTicket | undefined => {
-      if (connectionId) {
-        // In connection mode, search across ALL tickets from all projects
+      if (isMultiProjectMode) {
+        // In multi-project mode (connection or pinned), search across ALL tickets
         // (the dragged ticket may come from a different column/project)
         const allTickets = useKanbanStore.getState().tickets
         for (const projectTickets of allTickets.values()) {
@@ -87,18 +90,18 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
       const allTickets = useKanbanStore.getState().tickets.get(projectId) ?? []
       return allTickets.find((t) => t.id === ticketId)
     },
-    [connectionId, projectId]
+    [isMultiProjectMode, projectId]
   )
 
   const findTicketProjectId = useCallback(
     (ticketId: string): string => {
-      if (connectionId) {
+      if (isMultiProjectMode) {
         const ticket = findTicket(ticketId)
         if (ticket) return ticket.project_id
       }
       return projectId
     },
-    [connectionId, projectId, findTicket]
+    [isMultiProjectMode, projectId, findTicket]
   )
 
   // Global drag state — true when ANY ticket is being dragged
@@ -139,10 +142,16 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
 
   const handleArchiveAll = useCallback(async () => {
     try {
-      if (connectionId) {
+      if (isPinnedMode) {
+        // In pinned mode, archive done tickets across all pinned-derived projects
+        const projectIds = useKanbanStore.getState().getPinnedProjectIdsArray()
+        let total = 0
+        for (const pid of projectIds) {
+          total += await useKanbanStore.getState().archiveAllDone(pid)
+        }
+        toast.success(`Archived ${total} ticket${total !== 1 ? 's' : ''}`)
+      } else if (connectionId) {
         // In connection mode, archive done tickets across all member projects.
-        // Step 11 will fully implement a dedicated connection-aware archive method;
-        // for now, iterate over each member project individually.
         const projectIds = useKanbanStore.getState().getConnectionProjectIds(connectionId)
         let total = 0
         for (const pid of projectIds) {
@@ -157,7 +166,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
       toast.error('Failed to archive tickets')
     }
     setShowArchiveAllConfirm(false)
-  }, [projectId, connectionId])
+  }, [projectId, connectionId, isPinnedMode])
 
   const handleToggleCollapse = useCallback(() => {
     setIsCollapsed((prev) => !prev)
@@ -460,7 +469,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
                 >
                   {isDragOver && dropIndex === index && dropIndicator}
                   <div data-card-index={index} className={draggingTicketId === ticket.id ? 'h-0 min-h-0 overflow-hidden' : undefined}>
-                    <KanbanTicketCard ticket={ticket} index={index} connectionId={connectionId} />
+                    <KanbanTicketCard ticket={ticket} index={index} connectionId={connectionId} isPinnedMode={isPinnedMode} />
                   </div>
                 </motion.div>
               ))}
@@ -476,7 +485,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
                   </div>
                   {archivedTickets.map((ticket) => (
                     <div key={ticket.id}>
-                      <KanbanTicketCard ticket={ticket} index={-1} isArchived connectionId={connectionId} />
+                      <KanbanTicketCard ticket={ticket} index={-1} isArchived connectionId={connectionId} isPinnedMode={isPinnedMode} />
                     </div>
                   ))}
                 </>
@@ -505,6 +514,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
           onOpenChange={setIsCreateModalOpen}
           projectId={projectId}
           connectionId={connectionId}
+          isPinnedMode={isPinnedMode}
         />
       )}
 
@@ -512,7 +522,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
       {isInProgressColumn && worktreePickerTicket && (
         <WorktreePickerModal
           ticket={worktreePickerTicket}
-          projectId={connectionId ? worktreePickerTicket.project_id : projectId}
+          projectId={isMultiProjectMode ? worktreePickerTicket.project_id : projectId}
           open={true}
           onOpenChange={(open) => {
             if (!open) setWorktreePickerTicket(null)
