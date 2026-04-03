@@ -1808,6 +1808,7 @@ function ReviewModeContent({
             )}
           >
             {runRunning ? <><Square className="h-3.5 w-3.5" /> Stop</> : <><Play className="h-3.5 w-3.5" /> Run</>}
+              <kbd className="ml-1 text-[10px] opacity-60 font-sans">⌘R</kbd>
           </Button>
         )}
         <Button
