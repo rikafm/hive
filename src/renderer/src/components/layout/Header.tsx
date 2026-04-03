@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { isMac } from '@/lib/platform'
 import { useIsWebMode } from '@/hooks/useIsWebMode'
 import { getWebAuth } from '@/transport/graphql/auth'
@@ -34,7 +34,6 @@ import {
   ContextMenuItem,
   ContextMenuSeparator
 } from '@/components/ui/context-menu'
-import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { useLayoutStore } from '@/stores/useLayoutStore'
 import { useSessionHistoryStore } from '@/stores/useSessionHistoryStore'
@@ -50,6 +49,7 @@ import { useKanbanStore } from '@/stores/useKanbanStore'
 import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { QuickActions } from './QuickActions'
 import { usePRDetection } from '@/hooks/usePRDetection'
+import { useLifecycleActions } from '@/hooks/useLifecycleActions'
 import hiveLogo from '@/assets/icon.png'
 
 type ConflictFixFlow =
@@ -99,6 +99,10 @@ export function Header(): React.JSX.Element {
   const updateSessionName = useSessionStore((s) => s.updateSessionName)
   const setPendingMessage = useSessionStore((s) => s.setPendingMessage)
   const setActiveSession = useSessionStore((s) => s.setActiveSession)
+
+  // Lifecycle actions hook — PR/Review/Merge/Archive logic
+  const lifecycle = useLifecycleActions(selectedWorktreeId)
+
   const vimMode = useVimModeStore((s) => s.mode)
   const vimModeEnabled = useSettingsStore((s) => s.vimModeEnabled)
   const showVimHints = vimModeEnabled && vimMode === 'normal'
@@ -131,40 +135,15 @@ export function Header(): React.JSX.Element {
       (selectedWorktree?.path ? state.conflictsByWorktree[selectedWorktree.path] : false) ?? false
   )
 
-  // PR / remote info
-  const remoteInfo = useGitStore((state) =>
-    selectedWorktreeId ? state.remoteInfo.get(selectedWorktreeId) : undefined
-  )
-  const isGitHub = remoteInfo?.isGitHub ?? false
-  const prTargetBranch = useGitStore((state) =>
-    selectedWorktreeId ? state.prTargetBranch.get(selectedWorktreeId) : undefined
-  )
-  const setPrTargetBranch = useGitStore((state) => state.setPrTargetBranch)
-  const reviewTargetBranch = useGitStore((state) =>
-    selectedWorktreeId ? state.reviewTargetBranch.get(selectedWorktreeId) : undefined
-  )
-  const setReviewTargetBranch = useGitStore((state) => state.setReviewTargetBranch)
-  const branchInfoByWorktree = useGitStore((state) => state.branchInfoByWorktree)
-  const branchInfo = selectedWorktree?.path
-    ? branchInfoByWorktree.get(selectedWorktree.path)
-    : undefined
+  // Keep isOperating in Header (used for button disable state)
   const isOperating = useGitStore((state) => state.isPushing || state.isPulling)
 
-  // PR lifecycle state (new persistent model)
-  const prCreation = useGitStore((s) =>
-    selectedWorktreeId ? s.prCreation.get(selectedWorktreeId) : undefined
-  )
-  const attachedPR = useGitStore((s) =>
-    selectedWorktreeId ? s.attachedPR.get(selectedWorktreeId) : undefined
-  )
-  const isCreatingPR = prCreation?.creating ?? false
-  const hasAttachedPR = !!attachedPR
-
-  // Clean tree detection for merge button visibility
-  const fileStatuses = useGitStore((s) =>
-    selectedWorktree?.path ? s.fileStatusesByWorktree.get(selectedWorktree.path) : undefined
-  )
-  const isCleanTree = !fileStatuses || fileStatuses.length === 0
+  // Destructure lifecycle state for template use
+  const {
+    attachedPR, isCreatingPR, hasAttachedPR, prLiveState, isGitHub,
+    isMergingPR, isArchiving: isArchivingWorktree, branchInfo, remoteBranches,
+    prTargetBranch, reviewTargetBranch, isCleanTree
+  } = lifecycle
 
   const conflictFixSessionStatus = useWorktreeStatusStore((state) =>
     conflictFixFlow?.phase === 'running'
@@ -223,258 +202,39 @@ export function Header(): React.JSX.Element {
     }
   }, [conflictFixFlow, conflictFixSessionStatus])
 
-  // Load remote branches for the PR target and review target dropdowns
-  const [remoteBranches, setRemoteBranches] = useState<{ name: string }[]>([])
-  const [isMergingPR, setIsMergingPR] = useState(false)
-  const [isArchivingWorktree, setIsArchivingWorktree] = useState(false)
-
-  // PR picker popover state
+  // PR picker popover state (UI-specific to Header)
   const [prPickerOpen, setPrPickerOpen] = useState(false)
   const [prList, setPrList] = useState<
     Array<{ number: number; title: string; author: string; headRefName: string }>
   >([])
   const [prListLoading, setPrListLoading] = useState(false)
-  const [prLiveState, setPrLiveState] = useState<
-    { state?: string; title?: string } | null
-  >(null)
-
-  useEffect(() => {
-    if (!selectedWorktree?.path) {
-      setRemoteBranches([])
-      return
-    }
-    window.gitOps.listBranchesWithStatus(selectedWorktree.path).then((result) => {
-      if (result.success) {
-        setRemoteBranches(result.branches.filter((b: { isRemote: boolean }) => b.isRemote))
-      }
-    })
-  }, [selectedWorktree?.path])
 
   // Fetch PR list + live state when picker opens
   useEffect(() => {
-    if (!prPickerOpen || !selectedProject?.path) return
+    if (!prPickerOpen) return
     setPrListLoading(true)
 
-    const fetchPRs = window.gitOps.listPRs(selectedProject.path).then((res) => {
-      if (res.success) {
-        // Sort: branch-matching PR first, then by number descending
-        const currentBranch = branchInfo?.name ?? ''
-        const sorted = [...res.prs].sort((a, b) => {
-          const aMatch = a.headRefName === currentBranch ? 1 : 0
-          const bMatch = b.headRefName === currentBranch ? 1 : 0
-          if (aMatch !== bMatch) return bMatch - aMatch
-          return b.number - a.number
-        })
-        setPrList(sorted)
-      } else {
-        toast.error(res.error || 'Failed to load PRs')
-        setPrPickerOpen(false)
-      }
-    }).catch(() => {
-      toast.error('Failed to load PRs')
-      setPrPickerOpen(false)
+    const fetchPRs = lifecycle.loadPRList().then((list) => {
+      setPrList(list)
     })
 
-    const fetchState = attachedPR && selectedProject?.path
-      ? window.gitOps.getPRState(selectedProject.path, attachedPR.number).then((res) => {
-          if (res.success) {
-            setPrLiveState({ state: res.state, title: res.title })
-          }
-        }).catch(() => { /* non-critical */ })
+    const fetchState = lifecycle.hasAttachedPR
+      ? lifecycle.loadPRState()
       : Promise.resolve()
 
     Promise.all([fetchPRs, fetchState]).finally(() => setPrListLoading(false))
-  }, [prPickerOpen, selectedProject?.path, attachedPR, branchInfo?.name])
+  }, [prPickerOpen, lifecycle.hasAttachedPR])
 
-  // Clear live state when attached PR changes
-  useEffect(() => {
-    setPrLiveState(null)
-  }, [attachedPR?.number])
-
-  const handleCreatePR = useCallback(async () => {
-    if (!selectedWorktree?.path) return
-
-    const wtId = selectedWorktreeId
-    if (!wtId) {
-      toast.error('No worktree selected')
-      return
-    }
-
-    let projectId = ''
-    const worktreeStore = useWorktreeStore.getState()
-    for (const [projId, wts] of worktreeStore.worktreesByProject) {
-      if (wts.some((w) => w.id === wtId)) {
-        projectId = projId
-        break
-      }
-    }
-    if (!projectId) {
-      toast.error('Could not find project for worktree')
-      return
-    }
-
-    const targetBranch = prTargetBranch || branchInfo?.tracking || 'origin/main'
-
-    const sessionStore = useSessionStore.getState()
-    const result = await sessionStore.createSession(wtId, projectId)
-    if (!result.success || !result.session) {
-      toast.error('Failed to create PR session')
-      return
-    }
-
-    await sessionStore.updateSessionName(result.session.id, `PR → ${targetBranch}`)
-    sessionStore.setPendingMessage(
-      result.session.id,
-      [
-        `Create a pull request targeting ${targetBranch}.`,
-        `Use \`gh pr create\` to create the PR.`,
-        `Base the PR title and description on the git diff between HEAD and ${targetBranch}.`,
-        `Make the description comprehensive, summarizing all changes.`
-      ].join(' ')
-    )
-
-    // Tag this session as a PR session for detection
-    useGitStore.getState().setPrCreation(wtId, {
-      creating: true,
-      sessionId: result.session.id
-    })
-  }, [selectedWorktree?.path, selectedWorktreeId, prTargetBranch, branchInfo])
-
-  const handleReview = useCallback(async () => {
-    if (!selectedWorktree?.path) return
-
-    const wtId = selectedWorktreeId
-    if (!wtId) {
-      toast.error('No worktree selected')
-      return
-    }
-
-    let projectId = ''
-    const worktreeStore = useWorktreeStore.getState()
-    for (const [projId, wts] of worktreeStore.worktreesByProject) {
-      if (wts.some((w) => w.id === wtId)) {
-        projectId = projId
-        break
-      }
-    }
-    if (!projectId) {
-      toast.error('Could not find project for worktree')
-      return
-    }
-
-    const targetBranch = reviewTargetBranch || branchInfo?.tracking || 'origin/main'
-    const branchName = branchInfo?.name || 'unknown'
-
-    let reviewTemplate = ''
-    try {
-      const tmpl = await window.fileOps.readPrompt('review.md')
-      if (tmpl.success && tmpl.content) {
-        reviewTemplate = tmpl.content
-      }
-    } catch {
-      // readPrompt failed, use fallback
-    }
-
-    const prompt = reviewTemplate
-      ? [
-          reviewTemplate,
-          '',
-          '---',
-          '',
-          `Compare the current branch (${branchName}) against ${targetBranch}.`,
-          `Use \`git diff ${targetBranch}...HEAD\` to see all changes.`
-        ].join('\n')
-      : [
-          `Please review the changes on branch "${branchName}" compared to ${targetBranch}.`,
-          `Use \`git diff ${targetBranch}...HEAD\` to get the full diff.`,
-          'Focus on: bugs, logic errors, and code quality.'
-        ].join('\n')
-
-    const sessionStore = useSessionStore.getState()
-    const result = await sessionStore.createSession(wtId, projectId)
-    if (!result.success || !result.session) {
-      toast.error('Failed to create review session')
-      return
-    }
-
-    await sessionStore.updateSessionName(
-      result.session.id,
-      `Code Review — ${branchName} vs ${targetBranch}`
-    )
-    sessionStore.setPendingMessage(result.session.id, prompt)
-  }, [selectedWorktree?.path, selectedWorktreeId, reviewTargetBranch, branchInfo])
-
-  const handleMergePR = useCallback(async () => {
-    if (!selectedWorktree?.path || !selectedWorktreeId) return
-    const pr = useGitStore.getState().attachedPR.get(selectedWorktreeId)
-    if (!pr?.number) return
-
-    setIsMergingPR(true)
-    try {
-      const result = await window.gitOps.prMerge(selectedWorktree.path, pr.number)
-      if (result.success) {
-        toast.success('PR merged successfully')
-        setPrLiveState({ state: 'MERGED', title: prLiveState?.title })
-      } else {
-        toast.error(`Merge failed: ${result.error}`)
-      }
-    } catch {
-      toast.error('Failed to merge PR')
-    } finally {
-      setIsMergingPR(false)
-    }
-  }, [selectedWorktree?.path, selectedWorktreeId, prLiveState?.title])
-
-  const handleArchiveWorktree = useCallback(async () => {
-    if (!selectedWorktreeId || !selectedWorktree || !selectedProject) return
-    setIsArchivingWorktree(true)
-    try {
-      const result = await useWorktreeStore
-        .getState()
-        .archiveWorktree(
-          selectedWorktreeId,
-          selectedWorktree.path,
-          selectedWorktree.branch_name,
-          selectedProject.path
-        )
-
-      if (!result.success && result.error) {
-        toast.error(result.error)
-      }
-    } finally {
-      setIsArchivingWorktree(false)
-    }
-  }, [selectedWorktreeId, selectedWorktree, selectedProject])
-
-  const handleSelectPR = useCallback(
-    (pr: { number: number; headRefName: string }) => {
-      if (!selectedWorktreeId || !remoteInfo?.url) return
-      // Construct PR URL from remote URL + number
-      const cleanUrl = remoteInfo.url.replace(/\.git$/, '')
-      const prUrl = `${cleanUrl}/pull/${pr.number}`
-      useGitStore.getState().attachPR(selectedWorktreeId, pr.number, prUrl)
-      setPrPickerOpen(false)
-    },
-    [selectedWorktreeId, remoteInfo?.url]
-  )
-
-  const handleDetachPR = useCallback(() => {
-    if (!selectedWorktreeId) return
-    useGitStore.getState().detachPR(selectedWorktreeId)
+  // Thin wrappers for actions that also manage UI-local state (prPickerOpen)
+  const handleSelectPR = (pr: { number: number }) => {
+    lifecycle.attachPR(pr.number)
     setPrPickerOpen(false)
-    setPrLiveState(null)
-  }, [selectedWorktreeId])
+  }
 
-  const handleOpenPRInBrowser = useCallback(() => {
-    if (!attachedPR?.url) return
-    window.systemOps.openInChrome(attachedPR.url)
-  }, [attachedPR?.url])
-
-  const handleCopyPRUrl = useCallback(() => {
-    if (!attachedPR?.url) return
-    navigator.clipboard.writeText(attachedPR.url)
-    toast.success('PR URL copied')
-  }, [attachedPR?.url])
+  const handleDetachPR = () => {
+    lifecycle.detachPR()
+    setPrPickerOpen(false)
+  }
 
   const handleFixConflicts = async () => {
     if (!selectedWorktreeId || !selectedProjectId || !selectedWorktree?.path) return
@@ -597,7 +357,7 @@ export function Header(): React.JSX.Element {
               size="sm"
               variant="destructive"
               className="h-7 text-xs"
-              onClick={handleArchiveWorktree}
+              onClick={lifecycle.archiveWorktree}
               disabled={isArchivingWorktree}
               title="Archive worktree"
               data-testid="pr-archive-button"
@@ -628,7 +388,7 @@ export function Header(): React.JSX.Element {
               size="sm"
               variant="outline"
               className="h-7 text-xs bg-emerald-600/10 border-emerald-600/30 text-emerald-500 hover:bg-emerald-600/20"
-              onClick={handleMergePR}
+              onClick={lifecycle.mergePR}
               disabled={isMergingPR}
               title="Merge Pull Request"
               data-testid="pr-merge-button"
@@ -655,7 +415,7 @@ export function Header(): React.JSX.Element {
               size="sm"
               variant="outline"
               className="h-7 text-xs"
-              onClick={handleReview}
+              onClick={lifecycle.createCodeReview}
               disabled={isOperating}
               title="Review branch changes with AI"
               data-testid="review-button"
@@ -688,9 +448,7 @@ export function Header(): React.JSX.Element {
                   remoteBranches.map((branch) => (
                     <DropdownMenuItem
                       key={branch.name}
-                      onClick={() =>
-                        selectedWorktreeId && setReviewTargetBranch(selectedWorktreeId, branch.name)
-                      }
+                      onClick={() => lifecycle.setReviewTargetBranch(branch.name)}
                       data-testid={`review-target-branch-${branch.name}`}
                     >
                       {branch.name}
@@ -790,11 +548,11 @@ export function Header(): React.JSX.Element {
               </PopoverContent>
             </Popover>
             <ContextMenuContent>
-              <ContextMenuItem onClick={handleOpenPRInBrowser}>
+              <ContextMenuItem onClick={lifecycle.openPRInBrowser}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open PR in Browser
               </ContextMenuItem>
-              <ContextMenuItem onClick={handleCopyPRUrl}>
+              <ContextMenuItem onClick={lifecycle.copyPRUrl}>
                 <Copy className="h-4 w-4 mr-2" />
                 Copy PR URL
               </ContextMenuItem>
@@ -830,7 +588,7 @@ export function Header(): React.JSX.Element {
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={handleCreatePR}
+                onClick={lifecycle.createPR}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setPrPickerOpen(true)
@@ -904,9 +662,7 @@ export function Header(): React.JSX.Element {
                   remoteBranches.map((branch) => (
                     <DropdownMenuItem
                       key={branch.name}
-                      onClick={() =>
-                        selectedWorktreeId && setPrTargetBranch(selectedWorktreeId, branch.name)
-                      }
+                      onClick={() => lifecycle.setPrTargetBranch(branch.name)}
                       data-testid={`pr-target-branch-${branch.name}`}
                     >
                       {branch.name}
