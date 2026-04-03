@@ -994,7 +994,7 @@ function EditModeContent({
         </div>
       </div>
 
-      <DialogFooter className="flex items-center justify-between sm:justify-between">
+      <DialogFooter className="flex items-center justify-between sm:justify-between flex-wrap gap-y-2">
         <div>
           {showDeleteConfirm ? (
             <div className="flex items-center gap-2">
@@ -1030,7 +1030,7 @@ function EditModeContent({
             </Button>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {ticket.column === 'done' && ticket.worktree_id && (
             <Button
               type="button"
@@ -1882,7 +1882,7 @@ function ReviewModeContent({
         />
       </div>
 
-      <DialogFooter className="flex-shrink-0">
+      <DialogFooter className="flex-shrink-0 flex-wrap gap-y-2">
         <Button
           type="button"
           variant="outline"
