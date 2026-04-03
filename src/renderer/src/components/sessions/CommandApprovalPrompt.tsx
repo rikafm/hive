@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   Shield,
   Terminal,
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/useSettingsStore'
 import { patternMatches, splitBashCommand } from '@/lib/permissionUtils'
+import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut'
 import type {
   CommandApprovalRequest,
   SubCommandSuggestions
@@ -23,6 +24,7 @@ import type {
 
 interface CommandApprovalPromptProps {
   request: CommandApprovalRequest
+  sessionId?: string // Optional sessionId to track when switching between sessions
   onReply: (
     requestId: string,
     approved: boolean,
@@ -227,9 +229,10 @@ function buildDefaultSubPatterns(groups: SubCommandSuggestions[]): Record<number
   return defaults
 }
 
-export function CommandApprovalPrompt({ request, onReply }: CommandApprovalPromptProps) {
+export function CommandApprovalPrompt({ request, sessionId, onReply }: CommandApprovalPromptProps) {
   const [sending, setSending] = useState(false)
   const [patternPickerMode, setPatternPickerMode] = useState<'allow' | 'block' | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // For flat (single command / block always) picker
   const flatSuggestions = useMemo(
@@ -341,9 +344,35 @@ export function CommandApprovalPrompt({ request, onReply }: CommandApprovalPromp
     }
   }, [sending, flatSuggestions, onReply, request.id])
 
+  // Enter key handler: approve once (default) or confirm pattern if picker is open
+  // Only enabled when user has opted in via settings, and skips when user is typing in chat
+  const enterToApproveEnabled = commandFilter.enterToApprove
+
+  // Auto-focus the approval prompt when it appears or when switching between sessions
+  // ONLY if the user has enabled Enter to approve - otherwise we steal focus from chat
+  // Use double RAF to ensure focus happens after all layout and render cycles complete
+  // Depend on both request.id and sessionId to re-focus when switching sessions
+  useEffect(() => {
+    if (!enterToApproveEnabled) return
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        containerRef.current?.focus()
+      })
+    })
+  }, [request.id, sessionId, enterToApproveEnabled])
+  useKeyboardShortcut({
+    key: 'Enter',
+    callback: patternPickerMode ? handleConfirmPattern : handleAllow,
+    enabled: !sending && enterToApproveEnabled,
+    skipWhenEditing: true
+  })
+
   return (
     <div
-      className="rounded-md border border-border bg-zinc-900/50 overflow-hidden"
+      ref={containerRef}
+      tabIndex={-1}
+      className="rounded-md border border-border bg-zinc-900/50 overflow-hidden outline-none"
       data-testid="command-approval-prompt"
     >
       {/* Header */}
