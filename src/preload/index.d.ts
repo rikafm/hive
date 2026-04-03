@@ -426,6 +426,8 @@ declare global {
         error?: string
       }>
       getProjectIconPath: (filename: string) => Promise<string | null>
+      detectFavicon: (projectPath: string) => Promise<string | null>
+      getAbsoluteIconDataUrl: (absolutePath: string) => Promise<string | null>
     }
     worktreeOps: {
       hasCommits: (projectPath: string) => Promise<boolean>

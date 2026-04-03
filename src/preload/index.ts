@@ -238,7 +238,15 @@ const projectOps = {
 
   // Resolve an icon filename to a full file path
   getProjectIconPath: (filename: string): Promise<string | null> =>
-    ipcRenderer.invoke('project:getIconPath', filename)
+    ipcRenderer.invoke('project:getIconPath', filename),
+
+  // Detect project favicon from well-known paths
+  detectFavicon: (projectPath: string): Promise<string | null> =>
+    ipcRenderer.invoke('project:detectFavicon', projectPath),
+
+  // Resolve an absolute icon path to a data URL
+  getAbsoluteIconDataUrl: (absolutePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('project:getAbsoluteIconDataUrl', absolutePath)
 }
 
 // Worktree operations API

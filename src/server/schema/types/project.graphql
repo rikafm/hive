@@ -6,6 +6,7 @@ type Project {
   tags: String
   language: String
   customIcon: String
+  detectedIcon: String
   setupScript: String
   runScript: String
   archiveScript: String
@@ -142,6 +143,7 @@ input UpdateProjectInput {
   tags: [String!]
   language: String
   customIcon: String
+  detectedIcon: String
   setupScript: String
   runScript: String
   archiveScript: String

@@ -146,7 +146,7 @@ function RecentWorktreeItem({ worktreeId }: { worktreeId: string }): React.JSX.E
       data-testid={`recent-worktree-${worktreeId}`}
     >
       {/* Project icon */}
-      <LanguageIcon language={project.language} customIcon={project.custom_icon} />
+      <LanguageIcon language={project.language} customIcon={project.custom_icon} detectedIcon={project.detected_icon} />
 
       {/* Status indicators (heartbeat + AI status) */}
       {isRunProcessAlive && <PulseAnimation className="h-3.5 w-3.5 text-green-500 shrink-0" />}

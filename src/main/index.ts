@@ -28,7 +28,7 @@ import {
   registerUsageHandlers,
   registerKanbanHandlers
 } from './ipc'
-import { buildMenu, updateMenuState } from './menu'
+import { buildMenu, updateMenuState, shutdownMenu } from './menu'
 import type { MenuState } from './menu'
 import { createLogger, getLogDir } from './services/logger'
 import { detectAgentSdks } from './services/system-info'
@@ -669,6 +669,8 @@ app.on('window-all-closed', () => {
 
 // Cleanup when app is about to quit
 app.on('will-quit', async () => {
+  // Prevent further menu mutations — must be first to avoid native WeakPtr errors
+  shutdownMenu()
   // Cleanup updater timers
   updaterService.cleanup()
   // Cleanup terminal PTYs

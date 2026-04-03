@@ -7,8 +7,10 @@ import {
   validateProject,
   initRepository,
   detectProjectLanguage,
+  detectProjectFavicon,
   loadLanguageIcons,
   getIconDataUrl,
+  getAbsoluteIconDataUrl,
   removeIcon
 } from '../services/project-ops'
 
@@ -87,6 +89,23 @@ export function registerProjectHandlers(): void {
     async (_event, projectPath: string): Promise<string | null> => {
       log.debug('Detecting project language', { projectPath })
       return detectProjectLanguage(projectPath)
+    }
+  )
+
+  // Detect project favicon from well-known paths
+  ipcMain.handle(
+    'project:detectFavicon',
+    async (_event, projectPath: string): Promise<string | null> => {
+      log.debug('Detecting project favicon', { projectPath })
+      return detectProjectFavicon(projectPath)
+    }
+  )
+
+  // Resolve an absolute icon path to a data URL
+  ipcMain.handle(
+    'project:getAbsoluteIconDataUrl',
+    (_event, absolutePath: string): string | null => {
+      return getAbsoluteIconDataUrl(absolutePath)
     }
   )
 

@@ -83,6 +83,7 @@ type Query {
   projectDetectLanguage(projectPath: String!): String
   projectLanguageIcons: JSON!
   projectIconPath(filename: String!): String
+  projectDetectFavicon(projectPath: String!): String
 
   # --- Settings Operations ---
   detectedEditors: [DetectedApp!]!

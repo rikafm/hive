@@ -13,7 +13,7 @@ import { join, basename, extname } from 'path'
 import { createLogger } from './logger'
 import { getDatabase } from '../db'
 
-export { detectProjectLanguage } from './language-detector'
+export { detectProjectLanguage, detectProjectFavicon } from './language-detector'
 
 const log = createLogger({ component: 'ProjectOps' })
 
@@ -23,7 +23,8 @@ const MIME_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
-  '.webp': 'image/webp'
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon'
 }
 
 const iconDir = join(app.getPath('home'), '.hive', 'project-icons')
@@ -174,6 +175,30 @@ export function getIconDataUrl(filename: string): string | null {
   } catch (err) {
     log.warn('Failed to read project icon', {
       filename,
+      error: err instanceof Error ? err.message : String(err)
+    })
+    return null
+  }
+}
+
+/**
+ * Resolve any absolute file path to a base64 data URL.
+ * Used for auto-detected favicons stored as absolute paths.
+ */
+export function getAbsoluteIconDataUrl(absolutePath: string): string | null {
+  if (!absolutePath) return null
+  if (!existsSync(absolutePath)) return null
+
+  try {
+    const ext = extname(absolutePath).toLowerCase()
+    const mime = MIME_TYPES[ext]
+    if (!mime) return null
+
+    const data = readFileSync(absolutePath)
+    return `data:${mime};base64,${data.toString('base64')}`
+  } catch (err) {
+    log.warn('Failed to read absolute icon path', {
+      absolutePath,
       error: err instanceof Error ? err.message : String(err)
     })
     return null

@@ -602,7 +602,7 @@ function PinnedWorktreeItem({ worktreeId }: { worktreeId: string }): React.JSX.E
           onClick={handleClick}
           data-testid={`pinned-worktree-${worktreeId}`}
         >
-          <LanguageIcon language={project.language} customIcon={project.custom_icon} />
+          <LanguageIcon language={project.language} customIcon={project.custom_icon} detectedIcon={project.detected_icon} />
 
           {isRunProcessAlive && <PulseAnimation className="h-3.5 w-3.5 text-green-500 shrink-0" />}
           {(worktreeStatus === 'working' || worktreeStatus === 'planning') && (

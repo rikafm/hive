@@ -61,6 +61,7 @@ interface Project {
   tags: string | null
   language: string | null
   custom_icon: string | null
+  detected_icon: string | null
   setup_script: string | null
   run_script: string | null
   archive_script: string | null
@@ -381,7 +382,7 @@ export function ProjectItem({
             </Button>
 
             {/* Language Icon */}
-            <LanguageIcon language={project.language} customIcon={project.custom_icon} />
+            <LanguageIcon language={project.language} customIcon={project.custom_icon} detectedIcon={project.detected_icon} />
 
             {/* Project Name */}
             {isEditing ? (

@@ -282,7 +282,10 @@ async function sendFollowupToSession(opts: {
   // SessionView does this on mount via initializeSession(), but the kanban
   // followup path bypasses SessionView entirely.  Without this, the Claude Code
   // implementer throws "session not found" because its Map was never populated.
-  await window.opencodeOps.reconnect(workingPath, session.opencode_session_id, opts.sessionId)
+  const reconnectResult = await window.opencodeOps.reconnect(workingPath, session.opencode_session_id, opts.sessionId)
+  if (!reconnectResult.success) {
+    throw new Error(`Failed to reconnect to session: ${opts.sessionId}`)
+  }
 
   const promptResult = await window.opencodeOps.prompt(workingPath, session.opencode_session_id, [
     { type: 'text', text: fullPrompt }
@@ -823,8 +826,18 @@ function EditModeContent({
     }
   }, [deleteTicket, ticket.id, ticket.project_id, onClose])
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && title.trim()) {
+        e.preventDefault()
+        handleSave()
+      }
+    },
+    [handleSave, title]
+  )
+
   return (
-    <>
+    <div onKeyDown={handleKeyDown}>
       <DialogHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1103,7 +1116,7 @@ function EditModeContent({
           </Button>
         </div>
       </DialogFooter>
-    </>
+    </div>
   )
 }
 
@@ -1198,6 +1211,20 @@ function PlanReviewModeContent({
             .setSessionStatus(sessionId, 'planning')
           toast.success('Plan rejected with feedback')
           onClose()
+
+          // Send the rejection feedback to the session in background.
+          // UI is already updated (plan cleared, status set, modal closed).
+          sendFollowupToSession({
+            sessionId,
+            prompt: feedback,
+            followUpMode,
+            ticketId: ticket.id,
+          }).catch((err) => {
+            console.error('[KanbanTicketModal] sendFollowupToSession failed:', err)
+            const reason = err instanceof Error ? err.message : String(err)
+            toast.error(`Failed to send followup: ${reason}`)
+            useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+          })
           return
         }
       }
@@ -1915,6 +1942,7 @@ function ReviewModeContent({
             )}
           >
             {runRunning ? <><Square className="h-3.5 w-3.5" /> Stop</> : <><Play className="h-3.5 w-3.5" /> Run</>}
+              <kbd className="ml-1 text-[10px] opacity-60 font-sans">⌘R</kbd>
           </Button>
         )}
         {ticket.worktree_id && (

@@ -11,6 +11,12 @@ export interface MenuState {
 }
 
 let _mainWindow: BrowserWindow | null = null
+let _isShuttingDown = false
+
+/** Prevent further menu mutations during app shutdown. */
+export function shutdownMenu(): void {
+  _isShuttingDown = true
+}
 
 function send(channel: string, ...args: unknown[]): void {
   if (_mainWindow && !_mainWindow.isDestroyed()) {
@@ -297,32 +303,44 @@ export function buildMenu(mainWindow: BrowserWindow, isDev: boolean): Menu {
 }
 
 export function updateMenuState(state: MenuState): void {
-  const menu = Menu.getApplicationMenu()
-  if (!menu) return
+  if (_isShuttingDown) return
 
-  for (const id of sessionItemIds) {
-    const item = menu.getMenuItemById(id)
-    if (!item) continue
+  try {
+    const menu = Menu.getApplicationMenu()
+    if (!menu) return
 
-    if (id === 'session-undo-turn') {
-      item.enabled = state.canUndo ?? state.hasActiveSession
-    } else if (id === 'session-redo-turn') {
-      item.enabled = state.canRedo ?? state.hasActiveSession
-    } else {
-      item.enabled = state.hasActiveSession
+    for (const id of sessionItemIds) {
+      const item = menu.getMenuItemById(id)
+      if (!item) continue
+
+      if (id === 'session-undo-turn') {
+        item.enabled = state.canUndo ?? state.hasActiveSession
+      } else if (id === 'session-redo-turn') {
+        item.enabled = state.canRedo ?? state.hasActiveSession
+      } else {
+        item.enabled = state.hasActiveSession
+      }
     }
-  }
 
-  for (const id of worktreeItemIds) {
-    const item = menu.getMenuItemById(id)
-    if (item) item.enabled = state.hasActiveWorktree
+    for (const id of worktreeItemIds) {
+      const item = menu.getMenuItemById(id)
+      if (item) item.enabled = state.hasActiveWorktree
+    }
+  } catch {
+    // Native menu model may be mid-destruction — safe to ignore
   }
 }
 
 export function setAppVersion(version: string): void {
-  const menu = Menu.getApplicationMenu()
-  if (!menu) return
+  if (_isShuttingDown) return
 
-  const item = menu.getMenuItemById('help-app-version')
-  if (item) item.label = `Version ${version}`
+  try {
+    const menu = Menu.getApplicationMenu()
+    if (!menu) return
+
+    const item = menu.getMenuItemById('help-app-version')
+    if (item) item.label = `Version ${version}`
+  } catch {
+    // Native menu model may be mid-destruction — safe to ignore
+  }
 }
