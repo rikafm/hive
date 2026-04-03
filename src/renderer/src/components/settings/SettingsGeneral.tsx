@@ -13,6 +13,7 @@ export function SettingsGeneral(): React.JSX.Element {
     autoStartSession,
     autoPullBeforeWorktree,
     vimModeEnabled,
+    mergeConflictMode,
     breedType,
     showModelIcons,
     showModelProvider,
@@ -117,6 +118,52 @@ export function SettingsGeneral(): React.JSX.Element {
             )}
           />
         </button>
+      </div>
+
+      {/* Merge conflict mode */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Merge conflict mode</label>
+        <p className="text-xs text-muted-foreground">
+          Choose which mode to use when fixing merge conflicts with AI
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => updateSetting('mergeConflictMode', 'build')}
+            className={cn(
+              'px-3 py-1.5 rounded-md text-sm border transition-colors',
+              mergeConflictMode === 'build'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted/50 text-muted-foreground border-border hover:bg-accent/50'
+            )}
+            data-testid="merge-conflict-mode-build"
+          >
+            Build
+          </button>
+          <button
+            onClick={() => updateSetting('mergeConflictMode', 'plan')}
+            className={cn(
+              'px-3 py-1.5 rounded-md text-sm border transition-colors',
+              mergeConflictMode === 'plan'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted/50 text-muted-foreground border-border hover:bg-accent/50'
+            )}
+            data-testid="merge-conflict-mode-plan"
+          >
+            Plan
+          </button>
+          <button
+            onClick={() => updateSetting('mergeConflictMode', 'always-ask')}
+            className={cn(
+              'px-3 py-1.5 rounded-md text-sm border transition-colors',
+              mergeConflictMode === 'always-ask'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted/50 text-muted-foreground border-border hover:bg-accent/50'
+            )}
+            data-testid="merge-conflict-mode-always-ask"
+          >
+            Always Ask
+          </button>
+        </div>
       </div>
 
       {/* Model icons */}
