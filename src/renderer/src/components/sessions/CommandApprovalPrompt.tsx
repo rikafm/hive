@@ -343,10 +343,11 @@ export function CommandApprovalPrompt({ request, onReply }: CommandApprovalPromp
     }
   }, [sending, flatSuggestions, onReply, request.id])
 
-  // Auto-focus the approval prompt when it appears so Enter key works immediately
+  // Auto-focus the approval prompt when it appears or when switching between sessions
+  // This ensures Enter key works immediately even when navigating between chats
   useEffect(() => {
     containerRef.current?.focus()
-  }, [])
+  }, [request.id])
 
   // Enter key handler: approve once (default) or confirm pattern if picker is open
   // Only enabled when user has opted in via settings, and skips when user is typing in chat
