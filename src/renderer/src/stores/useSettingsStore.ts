@@ -49,6 +49,7 @@ export interface AppSettings {
   breedType: 'dogs' | 'cats'
   vimModeEnabled: boolean
   mergeConflictMode: MergeConflictMode
+  boardMode: 'toggle' | 'sticky-tab'
 
   // Editor
   defaultEditor: EditorOption
@@ -118,6 +119,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   breedType: 'dogs',
   vimModeEnabled: false,
   mergeConflictMode: 'build',
+  boardMode: 'toggle',
   defaultEditor: 'vscode',
   customEditorCommand: '',
   defaultTerminal: 'terminal',
@@ -239,6 +241,7 @@ function extractSettings(state: SettingsState): AppSettings {
     breedType: state.breedType,
     vimModeEnabled: state.vimModeEnabled,
     mergeConflictMode: state.mergeConflictMode,
+    boardMode: state.boardMode,
     defaultEditor: state.defaultEditor,
     customEditorCommand: state.customEditorCommand,
     defaultTerminal: state.defaultTerminal,
@@ -319,6 +322,43 @@ export const useSettingsStore = create<SettingsState>()(
         // Notify main process of channel change
         if (key === 'updateChannel' && window.updaterOps?.setChannel) {
           window.updaterOps.setChannel(value as string)
+        }
+        // Handle board mode switching side effects
+        if (key === 'boardMode') {
+          // setTimeout ensures the state update completes before side effects run.
+          // Dynamic import() avoids circular dependency (useSessionStore imports useSettingsStore).
+          setTimeout(() => {
+            Promise.all([
+              import('./useKanbanStore'),
+              import('./useSessionStore')
+            ]).then(([{ useKanbanStore }, { useSessionStore, BOARD_TAB_ID }]) => {
+              if (value === 'sticky-tab') {
+                // Toggle → Sticky Tab: deactivate toggle board view, activate board tab
+                if (useKanbanStore.getState().isBoardViewActive) {
+                  useKanbanStore.getState().toggleBoardView()
+                }
+                useSessionStore.getState().setActiveSession(BOARD_TAB_ID)
+              } else {
+                // Sticky Tab → Toggle: if on board tab, fall back to first real session
+                const sessionStore = useSessionStore.getState()
+                if (sessionStore.activeSessionId === BOARD_TAB_ID) {
+                  const worktreeId = sessionStore.activeWorktreeId
+                  if (worktreeId) {
+                    const tabOrder =
+                      sessionStore.tabOrderByWorktree.get(worktreeId) || []
+                    const sessions =
+                      sessionStore.sessionsByWorktree.get(worktreeId) || []
+                    const fallbackId =
+                      tabOrder.find((id) => id !== BOARD_TAB_ID) ||
+                      (sessions.length > 0 ? sessions[0].id : null)
+                    sessionStore.setActiveSession(fallbackId)
+                  } else {
+                    sessionStore.setActiveSession(null)
+                  }
+                }
+              }
+            }).catch(console.error)
+          }, 0)
         }
       },
 
@@ -450,6 +490,7 @@ export const useSettingsStore = create<SettingsState>()(
         breedType: state.breedType,
         vimModeEnabled: state.vimModeEnabled,
         mergeConflictMode: state.mergeConflictMode,
+        boardMode: state.boardMode,
         defaultEditor: state.defaultEditor,
         customEditorCommand: state.customEditorCommand,
         defaultTerminal: state.defaultTerminal,

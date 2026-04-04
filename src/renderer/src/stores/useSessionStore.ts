@@ -6,6 +6,8 @@ import { useWorktreeStore } from './useWorktreeStore'
 import { notifyKanbanSessionSync } from './store-coordination'
 import { useSettingsStore } from './useSettingsStore'
 
+export const BOARD_TAB_ID = '__board__'
+
 // Session mode type
 export type SessionMode = 'build' | 'plan' | 'super-plan'
 
@@ -286,19 +288,37 @@ export const useSessionStore = create<SessionState>()(
             let activeSessionId = state.activeSessionId
             if (
               state.activeWorktreeId === worktreeId &&
-              !activeSessionId &&
-              merged.length > 0
+              !activeSessionId
             ) {
               // Try to restore persisted active session
               const persistedSessionId = state.activeSessionByWorktree[worktreeId]
-              const sessionExists =
-                persistedSessionId && merged.some((s) => s.id === persistedSessionId)
+              const boardMode = useSettingsStore.getState().boardMode
 
-              if (sessionExists) {
-                activeSessionId = persistedSessionId
-              } else {
-                const tabOrder = newTabOrderMap.get(worktreeId)!
-                activeSessionId = tabOrder[0] || merged[0].id
+              if (persistedSessionId === BOARD_TAB_ID && boardMode === 'sticky-tab') {
+                // Board tab is valid in sticky-tab mode
+                activeSessionId = BOARD_TAB_ID
+              } else if (persistedSessionId === BOARD_TAB_ID && boardMode === 'toggle') {
+                // Mode was switched away from sticky — fall back to first session
+                if (sortedSessions.length > 0) {
+                  const tabOrder = newTabOrderMap.get(worktreeId)!
+                  activeSessionId = tabOrder[0] || sortedSessions[0].id
+                }
+              } else if (sortedSessions.length > 0) {
+                const sessionExists =
+                  persistedSessionId && sortedSessions.some((s) => s.id === persistedSessionId)
+
+                if (sessionExists) {
+                  activeSessionId = persistedSessionId
+                } else if (boardMode === 'sticky-tab') {
+                  // No persisted session, sticky-tab mode: default to board
+                  activeSessionId = BOARD_TAB_ID
+                } else {
+                  const tabOrder = newTabOrderMap.get(worktreeId)!
+                  activeSessionId = tabOrder[0] || sortedSessions[0].id
+                }
+              } else if (boardMode === 'sticky-tab') {
+                // No sessions at all, sticky-tab mode: default to board
+                activeSessionId = BOARD_TAB_ID
               }
             }
 
@@ -521,7 +541,8 @@ export const useSessionStore = create<SessionState>()(
                     const newIndex = Math.min(sessionIndex, newOrder.length - 1)
                     newActiveSessionId = newOrder[newIndex]
                   } else {
-                    newActiveSessionId = null
+                    const boardMode = useSettingsStore.getState().boardMode
+                    newActiveSessionId = boardMode === 'sticky-tab' ? BOARD_TAB_ID : null
                   }
                 }
                 break
@@ -547,7 +568,8 @@ export const useSessionStore = create<SessionState>()(
                       const newIndex = Math.min(sessionIndex, newOrder.length - 1)
                       newActiveSessionId = newOrder[newIndex]
                     } else {
-                      newActiveSessionId = null
+                      const boardMode = useSettingsStore.getState().boardMode
+                      newActiveSessionId = boardMode === 'sticky-tab' ? BOARD_TAB_ID : null
                     }
                   }
                   break
@@ -815,17 +837,31 @@ export const useSessionStore = create<SessionState>()(
           if (existingSessions) {
             // Try to restore persisted active session for this worktree
             const persistedSessionId = state.activeSessionByWorktree[worktreeId]
-            const sessionExists =
-              persistedSessionId && existingSessions.some((s) => s.id === persistedSessionId)
+            const boardMode = useSettingsStore.getState().boardMode
 
-            if (sessionExists) {
-              set({ activeSessionId: persistedSessionId })
-            } else {
-              // Fallback to first tab
+            if (persistedSessionId === BOARD_TAB_ID && boardMode === 'sticky-tab') {
+              set({ activeSessionId: BOARD_TAB_ID })
+            } else if (persistedSessionId === BOARD_TAB_ID && boardMode === 'toggle') {
+              // Mode was switched away from sticky — fall back to first session
               const tabOrder = state.tabOrderByWorktree.get(worktreeId) || []
               const activeId =
                 tabOrder[0] || (existingSessions.length > 0 ? existingSessions[0].id : null)
               set({ activeSessionId: activeId })
+            } else {
+              const sessionExists =
+                persistedSessionId && existingSessions.some((s) => s.id === persistedSessionId)
+
+              if (sessionExists) {
+                set({ activeSessionId: persistedSessionId })
+              } else if (boardMode === 'sticky-tab') {
+                set({ activeSessionId: BOARD_TAB_ID })
+              } else {
+                // Fallback to first tab
+                const tabOrder = state.tabOrderByWorktree.get(worktreeId) || []
+                const activeId =
+                  tabOrder[0] || (existingSessions.length > 0 ? existingSessions[0].id : null)
+                set({ activeSessionId: activeId })
+              }
             }
           } else {
             // Clear active session until sessions are loaded
@@ -1487,18 +1523,32 @@ export const useSessionStore = create<SessionState>()(
             let activeSessionId = state.activeSessionId
             if (
               state.activeConnectionId === connectionId &&
-              !activeSessionId &&
-              sortedSessions.length > 0
+              !activeSessionId
             ) {
               const persistedSessionId = state.activeSessionByConnection[connectionId]
-              const sessionExists =
-                persistedSessionId && sortedSessions.some((s) => s.id === persistedSessionId)
+              const boardMode = useSettingsStore.getState().boardMode
 
-              if (sessionExists) {
-                activeSessionId = persistedSessionId
-              } else {
-                const tabOrder = newTabOrderMap.get(connectionId)!
-                activeSessionId = tabOrder[0] || sortedSessions[0].id
+              if (persistedSessionId === BOARD_TAB_ID && boardMode === 'sticky-tab') {
+                activeSessionId = BOARD_TAB_ID
+              } else if (persistedSessionId === BOARD_TAB_ID && boardMode === 'toggle') {
+                if (sortedSessions.length > 0) {
+                  const tabOrder = newTabOrderMap.get(connectionId)!
+                  activeSessionId = tabOrder[0] || sortedSessions[0].id
+                }
+              } else if (sortedSessions.length > 0) {
+                const sessionExists =
+                  persistedSessionId && sortedSessions.some((s) => s.id === persistedSessionId)
+
+                if (sessionExists) {
+                  activeSessionId = persistedSessionId
+                } else if (boardMode === 'sticky-tab') {
+                  activeSessionId = BOARD_TAB_ID
+                } else {
+                  const tabOrder = newTabOrderMap.get(connectionId)!
+                  activeSessionId = tabOrder[0] || sortedSessions[0].id
+                }
+              } else if (boardMode === 'sticky-tab') {
+                activeSessionId = BOARD_TAB_ID
               }
             }
 
@@ -1645,16 +1695,28 @@ export const useSessionStore = create<SessionState>()(
           const existingSessions = state.sessionsByConnection.get(connectionId)
           if (existingSessions) {
             const persistedSessionId = state.activeSessionByConnection[connectionId]
-            const sessionExists =
-              persistedSessionId && existingSessions.some((s) => s.id === persistedSessionId)
+            const boardMode = useSettingsStore.getState().boardMode
 
-            if (sessionExists) {
-              set({ activeSessionId: persistedSessionId })
-            } else {
+            if (persistedSessionId === BOARD_TAB_ID && boardMode === 'sticky-tab') {
+              set({ activeSessionId: BOARD_TAB_ID })
+            } else if (persistedSessionId === BOARD_TAB_ID && boardMode === 'toggle') {
               const tabOrder = state.tabOrderByConnection.get(connectionId) || []
               const activeId =
                 tabOrder[0] || (existingSessions.length > 0 ? existingSessions[0].id : null)
               set({ activeSessionId: activeId })
+            } else {
+              const sessionExists =
+                persistedSessionId && existingSessions.some((s) => s.id === persistedSessionId)
+              if (sessionExists) {
+                set({ activeSessionId: persistedSessionId })
+              } else if (boardMode === 'sticky-tab') {
+                set({ activeSessionId: BOARD_TAB_ID })
+              } else {
+                const tabOrder = state.tabOrderByConnection.get(connectionId) || []
+                const activeId =
+                  tabOrder[0] || (existingSessions.length > 0 ? existingSessions[0].id : null)
+                set({ activeSessionId: activeId })
+              }
             }
           } else {
             set({ activeSessionId: null })
