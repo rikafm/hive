@@ -54,6 +54,7 @@ import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { QuickActions } from './QuickActions'
 import { usePRDetection } from '@/hooks/usePRDetection'
 import { useLifecycleActions } from '@/hooks/useLifecycleActions'
+import { usePinAndActivateSession } from '@/hooks/usePinAndActivateSession'
 import hiveLogo from '@/assets/icon.png'
 
 type ConflictFixFlow =
@@ -106,6 +107,7 @@ export function Header(): React.JSX.Element {
 
   // Lifecycle actions hook — PR/Review/Merge/Archive logic
   const lifecycle = useLifecycleActions(selectedWorktreeId)
+  const { pinAndActivate, lifecycleLoading } = usePinAndActivateSession()
 
   const vimMode = useVimModeStore((s) => s.mode)
   const vimModeEnabled = useSettingsStore((s) => s.vimModeEnabled)
@@ -467,8 +469,8 @@ export function Header(): React.JSX.Element {
               size="sm"
               variant="outline"
               className="h-7 text-xs"
-              onClick={() => lifecycle.createCodeReview()}
-              disabled={isOperating}
+              onClick={() => pinAndActivate(() => lifecycle.createCodeReview())}
+              disabled={isOperating || lifecycleLoading}
               title="Review branch changes with AI"
               data-testid="review-button"
             >
@@ -640,12 +642,12 @@ export function Header(): React.JSX.Element {
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={() => lifecycle.createPR()}
+                onClick={() => pinAndActivate(() => lifecycle.createPR())}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setPrPickerOpen(true)
                 }}
-                disabled={isOperating}
+                disabled={isOperating || lifecycleLoading}
                 title="Create Pull Request (right-click to attach existing)"
                 data-testid="pr-button"
               >
