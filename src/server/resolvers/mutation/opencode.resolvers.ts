@@ -68,13 +68,13 @@ export const opencodeMutationResolvers: Resolvers = {
 
     opencodePrompt: async (_parent, { input }, ctx) => {
       try {
-        const { worktreePath, opencodeSessionId, message, parts, model } = input
+        const { worktreePath, opencodeSessionId, message, parts, model, options } = input
         const messageParts = parts ?? [{ type: 'text', text: message ?? '' }]
         await withSdkDispatch(
           ctx,
           opencodeSessionId,
           () => openCodeService.prompt(worktreePath, opencodeSessionId, messageParts, model),
-          (impl) => impl.prompt(worktreePath, opencodeSessionId, messageParts, model)
+          (impl) => impl.prompt(worktreePath, opencodeSessionId, messageParts, model, options ?? undefined)
         )
         return { success: true }
       } catch (error) {

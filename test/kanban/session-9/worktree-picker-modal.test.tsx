@@ -33,23 +33,24 @@ const mockKanban = {
 }
 
 const mockDbSession = {
-  create: vi.fn().mockResolvedValue({
+  create: vi.fn().mockImplementation(async (input: Record<string, unknown>) => ({
     id: 'new-session-1',
-    worktree_id: 'wt-1',
-    project_id: 'proj-1',
-    connection_id: null,
-    name: 'Session 1',
+    worktree_id: (input.worktree_id as string | null) ?? 'wt-1',
+    project_id: (input.project_id as string | null) ?? 'proj-1',
+    connection_id: (input.connection_id as string | null) ?? null,
+    name: (input.name as string | null) ?? 'Session 1',
     status: 'active',
     opencode_session_id: null,
-    agent_sdk: 'opencode',
-    mode: 'build',
-    model_provider_id: null,
-    model_id: null,
-    model_variant: null,
+    agent_sdk: (input.agent_sdk as string | null) ?? 'opencode',
+    mode: (input.mode as string | null) ?? 'build',
+    model_provider_id: (input.model_provider_id as string | null) ?? null,
+    model_id: (input.model_id as string | null) ?? null,
+    model_variant: (input.model_variant as string | null) ?? null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     completed_at: null
-  }),
+  })),
+  update: vi.fn().mockResolvedValue(undefined),
   getActiveByWorktree: vi.fn().mockResolvedValue([])
 }
 
@@ -115,6 +116,24 @@ const mockGitOps = {
   })
 }
 
+const mockOpencodeOps = {
+  connect: vi.fn().mockResolvedValue({ success: true, sessionId: 'oc-session-1' }),
+  prompt: vi.fn().mockResolvedValue({ success: true }),
+  listModels: vi.fn().mockResolvedValue({
+    success: true,
+    providers: [
+      {
+        id: 'openai',
+        name: 'OpenAI',
+        models: {
+          'gpt-5.4': { id: 'gpt-5.4', name: 'GPT-5.4' },
+          'gpt-5.4-mini': { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini' }
+        }
+      }
+    ]
+  })
+}
+
 Object.defineProperty(window, 'kanban', {
   writable: true,
   configurable: true,
@@ -142,11 +161,18 @@ Object.defineProperty(window, 'gitOps', {
   value: mockGitOps
 })
 
+Object.defineProperty(window, 'opencodeOps', {
+  writable: true,
+  configurable: true,
+  value: mockOpencodeOps
+})
+
 // ── Import stores AFTER mocking ─────────────────────────────────────
 import { useKanbanStore } from '@/stores/useKanbanStore'
 import { useSessionStore } from '@/stores/useSessionStore'
 import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import { useProjectStore } from '@/stores/useProjectStore'
+import { useSettingsStore } from '@/stores/useSettingsStore'
 
 // ── Import component under test ─────────────────────────────────────
 import { WorktreePickerModal, _resetLastSourceBranch } from '@/components/kanban/WorktreePickerModal'
@@ -268,6 +294,12 @@ describe('Session 9: Worktree Picker Modal', () => {
       })
       useProjectStore.setState({
         projects: [makeProject()]
+      })
+      useSettingsStore.setState({
+        availableAgentSdks: { opencode: true, claude: true, codex: true },
+        defaultAgentSdk: 'opencode',
+        codexFastMode: false,
+        codexFastModeAccepted: false
       })
     })
     vi.clearAllMocks()
@@ -580,6 +612,49 @@ describe('Session 9: Worktree Picker Modal', () => {
     expect(sendBtn).not.toBeDisabled()
   })
 
+  test('shows Fast toggle only when Codex is selected', async () => {
+    render(
+      <WorktreePickerModal
+        ticket={defaultTicket}
+        projectId="proj-1"
+        open={true}
+        onOpenChange={() => {}}
+      />
+    )
+
+    expect(screen.queryByTestId('codex-fast-toggle')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('sdk-toggle-codex'))
+    expect(await screen.findByTestId('codex-fast-toggle')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('sdk-toggle-opencode'))
+    await waitFor(() => {
+      expect(screen.queryByTestId('codex-fast-toggle')).not.toBeInTheDocument()
+    })
+  })
+
+  test('accepting Fast toggle updates shared Codex fast settings', async () => {
+    render(
+      <WorktreePickerModal
+        ticket={defaultTicket}
+        projectId="proj-1"
+        open={true}
+        onOpenChange={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('sdk-toggle-codex'))
+    fireEvent.click(await screen.findByTestId('codex-fast-toggle'))
+
+    expect(screen.getByText('Fast Mode')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
+
+    await waitFor(() => {
+      expect(useSettingsStore.getState().codexFastModeAccepted).toBe(true)
+      expect(useSettingsStore.getState().codexFastMode).toBe(true)
+    })
+  })
+
   // ── Submit flow tests ────────────────────────────────────────────
 
   test('submitting calls session creation with correct mode', async () => {
@@ -670,6 +745,43 @@ describe('Session 9: Worktree Picker Modal', () => {
     await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
+  })
+
+  test('submitting a Codex session forwards codexFastMode to the initial prompt', async () => {
+    act(() => {
+      useSettingsStore.setState({
+        codexFastMode: true,
+        codexFastModeAccepted: true
+      })
+    })
+
+    render(
+      <WorktreePickerModal
+        ticket={defaultTicket}
+        projectId="proj-1"
+        open={true}
+        onOpenChange={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('sdk-toggle-codex'))
+    fireEvent.click(screen.getByTestId('worktree-item-wt-1'))
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('wt-picker-send-btn'))
+    })
+
+    await waitFor(() => {
+      expect(mockOpencodeOps.prompt).toHaveBeenCalled()
+    })
+
+    expect(mockOpencodeOps.prompt).toHaveBeenLastCalledWith(
+      '/test/feature-auth',
+      'oc-session-1',
+      expect.any(Array),
+      undefined,
+      { codexFastMode: true }
+    )
   })
 
   // ── Source branch picker tests ──────────────────────────────────
