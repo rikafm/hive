@@ -463,7 +463,23 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
       expect(screen.getByTestId('plan-review-followup-input')).toBeInTheDocument()
     })
 
-    test('Implement calls correct session store actions', async () => {
+    test('Implement approves pending plan for Claude Code sessions', async () => {
+      act(() => {
+        useSessionStore.setState({
+          sessionsByWorktree: new Map([['wt-1', [makeSession({ agent_sdk: 'claude-code', mode: 'plan' })]]]),
+          pendingPlans: new Map([
+            [
+              'session-1',
+              {
+                requestId: 'req-1',
+                planContent: '## Detailed Plan\n\nStep 1: Setup routes\nStep 2: Add auth',
+                toolUseID: 'tool-1'
+              }
+            ]
+          ])
+        })
+      })
+
       render(<KanbanTicketModal />)
 
       const implementBtn = screen.getByTestId('plan-review-implement-btn')
@@ -479,6 +495,73 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
           'req-1'
         )
       })
+
+      expect(mockOpencodeOps.prompt).not.toHaveBeenCalled()
+    })
+
+    test('Implement sends wrapped followup for OpenCode sessions', async () => {
+      render(<KanbanTicketModal />)
+
+      const implementBtn = screen.getByTestId('plan-review-implement-btn')
+      await act(async () => {
+        fireEvent.click(implementBtn)
+      })
+
+      expect(useKanbanStore.getState().selectedTicketId).toBeNull()
+
+      await waitFor(() => {
+        expect(mockOpencodeOps.prompt).toHaveBeenCalledWith(
+          '/test/feature-auth',
+          'opc-session-1',
+          [
+            {
+              type: 'text',
+              text: 'PLEASE IMPLEMENT THIS PLAN:\n## Detailed Plan\n\nStep 1: Setup routes\nStep 2: Add auth'
+            }
+          ],
+          undefined
+        )
+      })
+
+      expect(mockOpencodeOps.planApprove).not.toHaveBeenCalled()
+    })
+
+    test('Implement sends Codex-style followup for Codex sessions', async () => {
+      act(() => {
+        useSessionStore.setState({
+          sessionsByWorktree: new Map([['wt-1', [makeSession({ agent_sdk: 'codex', mode: 'plan' })]]]),
+          pendingPlans: new Map([
+            [
+              'session-1',
+              {
+                requestId: 'req-1',
+                planContent: '## Detailed Plan\n\nStep 1: Setup routes\nStep 2: Add auth',
+                toolUseID: 'tool-1'
+              }
+            ]
+          ])
+        })
+      })
+
+      render(<KanbanTicketModal />)
+
+      const implementBtn = screen.getByTestId('plan-review-implement-btn')
+      await act(async () => {
+        fireEvent.click(implementBtn)
+      })
+
+      expect(useKanbanStore.getState().selectedTicketId).toBeNull()
+
+      await waitFor(() => {
+        expect(mockOpencodeOps.prompt).toHaveBeenCalledWith(
+          '/test/feature-auth',
+          'opc-session-1',
+          [{ type: 'text', text: 'Implement the plan.' }],
+          undefined
+        )
+      })
+
+      expect(mockOpencodeOps.planApprove).not.toHaveBeenCalled()
     })
 
     test('Supercharge calls correct session store actions', async () => {

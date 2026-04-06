@@ -18,6 +18,15 @@ export function buildPlanImplementationPrompt(planMarkdown: string): string {
   return `PLEASE IMPLEMENT THIS PLAN:\n${planMarkdown.trim()}`
 }
 
+export function buildSdkPlanImplementationPrompt(
+  agentSdk: string | null | undefined,
+  planMarkdown: string
+): string {
+  return agentSdk === 'codex'
+    ? 'Implement the plan.'
+    : buildPlanImplementationPrompt(planMarkdown)
+}
+
 export function resolvePlanFollowUpSubmission(input: { draftText: string; planMarkdown: string }): {
   text: string
   interactionMode: 'build' | 'plan'

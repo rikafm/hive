@@ -57,7 +57,10 @@ import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/mes
 import { snapshotTokenBaseline, computeTokenDelta } from '@/lib/token-baselines'
 import { notifyKanbanSessionSync } from '@/stores/store-coordination'
 import { isComposingKeyboardEvent } from '@/lib/message-composer-shortcuts'
-import { buildPlanImplementationPrompt, looksLikeCodexProposedPlan } from '@/lib/proposedPlan'
+import {
+  buildSdkPlanImplementationPrompt,
+  looksLikeCodexProposedPlan
+} from '@/lib/proposedPlan'
 
 // Stable empty array to avoid creating new references in selectors
 const EMPTY_FILE_INDEX: FlatFile[] = []
@@ -3754,9 +3757,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       lastSendMode.set(sessionId, 'build')
       notifyKanbanSessionSync(sessionId, { type: 'implement' })
       await handleSend(
-        sessionRecord?.agent_sdk === 'codex'
-          ? 'Implement the plan.'
-          : buildPlanImplementationPrompt(pendingBeforeAction.planContent)
+        buildSdkPlanImplementationPrompt(sessionRecord?.agent_sdk, pendingBeforeAction.planContent)
       )
       return
     }

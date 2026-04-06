@@ -54,6 +54,7 @@ import { snapshotTokenBaseline } from '@/lib/token-baselines'
 import { PLAN_MODE_PREFIX, SUPER_PLAN_MODE_PREFIX, isPlanLike } from '@/lib/constants'
 import { parseAttachmentUrl } from '@/lib/attachment-utils'
 import type { AttachmentInfo } from '@/lib/attachment-utils'
+import { buildSdkPlanImplementationPrompt } from '@/lib/proposedPlan'
 import { toast } from '@/lib/toast'
 import { useScriptStore, fireRunScript, killRunScript } from '@/stores/useScriptStore'
 import { useQuestionStore, type QuestionRequest } from '@/stores/useQuestionStore'
@@ -1254,6 +1255,8 @@ function PlanReviewModeContent({
 
     try {
       const sessionId = ticket.current_session_id
+      const pendingBeforeAction = pendingPlan
+      const isClaudeCode = sessionRecord?.agent_sdk === 'claude-code'
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
       await useSessionStore.getState().setSessionMode(sessionId, 'build')
@@ -1265,9 +1268,31 @@ function PlanReviewModeContent({
 
       // Clear plan_ready badge — ticket is back to working
       await useKanbanStore.getState().updateTicket(ticket.id, ticket.project_id, { plan_ready: false, mode: 'build' })
+      notifyKanbanSessionSync(sessionId, { type: 'implement' })
 
-      // For opencode agents, approve the plan if there's a pending one
-      if (pendingPlan && (sessionRecord?.worktree_id || sessionRecord?.connection_id)) {
+      if (!isClaudeCode && pendingBeforeAction) {
+        toast.success('Implementation started')
+        onClose()
+
+        sendFollowupToSession({
+          sessionId,
+          prompt: buildSdkPlanImplementationPrompt(
+            sessionRecord?.agent_sdk,
+            pendingBeforeAction.planContent
+          ),
+          followUpMode: 'build',
+          ticketId: ticket.id
+        }).catch((err) => {
+          const reason = err instanceof Error ? err.message : String(err)
+          console.error('[KanbanTicketModal] background implement send failed:', err)
+          toast.error(`Failed to start implementation: ${reason}`)
+          useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+        })
+        return
+      }
+
+      // Claude Code sessions approve the real pending plan request.
+      if (pendingBeforeAction && (sessionRecord?.worktree_id || sessionRecord?.connection_id)) {
         let approvePath: string | null = null
         if (sessionRecord.worktree_id) {
           approvePath = findWorktreePathById(sessionRecord.worktree_id)
@@ -1279,17 +1304,20 @@ function PlanReviewModeContent({
           toast.error('Failed to approve plan: working path not found')
           return
         }
-        await window.opencodeOps.planApprove(approvePath, sessionId, pendingPlan.requestId)
+        await window.opencodeOps.planApprove(approvePath, sessionId, pendingBeforeAction.requestId)
       }
 
       toast.success('Implementation started')
       onClose()
-    } catch {
-      toast.error('Failed to start implementation')
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      console.error('[KanbanTicketModal] handleImplement failed:', err)
+      toast.error(`Failed to start implementation: ${reason}`)
+      useWorktreeStatusStore.getState().clearSessionStatus(ticket.current_session_id)
     } finally {
       setIsActioning(false)
     }
-  }, [ticket.current_session_id, isActioning, pendingPlan, sessionRecord, onClose])
+  }, [ticket.current_session_id, ticket.id, ticket.project_id, isActioning, pendingPlan, sessionRecord, onClose])
 
   // ── Handoff handler ───────────────────────────────────────────────
   const handleHandoff = useCallback(async () => {
