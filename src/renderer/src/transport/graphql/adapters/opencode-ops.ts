@@ -63,7 +63,7 @@ export function createOpenCodeOpsAdapter(): OpenCodeOpsApi {
       opencodeSessionId: string,
       messageOrParts: string | MessagePart[],
       model?: { providerID: string; modelID: string; variant?: string },
-      _options?: { codexFastMode?: boolean }
+      options?: { codexFastMode?: boolean }
     ): Promise<{ success: boolean; error?: string }> {
       const input: Record<string, unknown> = {
         worktreePath,
@@ -76,6 +76,9 @@ export function createOpenCodeOpsAdapter(): OpenCodeOpsApi {
       }
       if (model) {
         input.model = model
+      }
+      if (options) {
+        input.options = options
       }
 
       const data = await graphqlQuery<{

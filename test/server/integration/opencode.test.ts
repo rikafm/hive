@@ -138,6 +138,12 @@ describe('OpenCode Resolvers — Integration Tests', () => {
       opencode_session_id: 'cc-session-1',
       agent_sdk: 'claude-code'
     })
+    db.createSession({
+      worktree_id: worktree.id,
+      project_id: project.id,
+      opencode_session_id: 'codex-session-1',
+      agent_sdk: 'codex'
+    })
   })
 
   // --- Connect ---
@@ -218,6 +224,26 @@ describe('OpenCode Resolvers — Integration Tests', () => {
       `)
       expect(result.data.opencodePrompt.success).toBe(true)
       expect(mockOpenCodeService.prompt).toHaveBeenCalled()
+    })
+
+    it('forwards prompt options to SDK implementers', async () => {
+      const result = await execute(`
+        mutation { opencodePrompt(input: {
+          worktreePath: "/tmp/test"
+          opencodeSessionId: "codex-session-1"
+          message: "Hello world"
+          options: { codexFastMode: true }
+        }) { success }}
+      `)
+
+      expect(result.data.opencodePrompt.success).toBe(true)
+      expect(sdkMocks.codexImpl.prompt).toHaveBeenCalledWith(
+        '/tmp/test',
+        'codex-session-1',
+        [{ type: 'text', text: 'Hello world' }],
+        undefined,
+        { codexFastMode: true }
+      )
     })
   })
 

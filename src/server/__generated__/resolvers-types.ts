@@ -1351,8 +1351,13 @@ export type OpenCodePromptInput = {
   message?: InputMaybe<Scalars['String']['input']>;
   model?: InputMaybe<ModelInput>;
   opencodeSessionId: Scalars['String']['input'];
+  options?: InputMaybe<OpenCodePromptOptionsInput>;
   parts?: InputMaybe<Array<MessagePartInput>>;
   worktreePath: Scalars['String']['input'];
+};
+
+export type OpenCodePromptOptionsInput = {
+  codexFastMode?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type OpenCodeReconnectInput = {
@@ -2438,6 +2443,7 @@ export type ResolversTypes = ResolversObject<{
   OpenCodeModelsResult: ResolverTypeWrapper<OpenCodeModelsResult>;
   OpenCodePermissionListResult: ResolverTypeWrapper<OpenCodePermissionListResult>;
   OpenCodePromptInput: OpenCodePromptInput;
+  OpenCodePromptOptionsInput: OpenCodePromptOptionsInput;
   OpenCodeReconnectInput: OpenCodeReconnectInput;
   OpenCodeReconnectResult: ResolverTypeWrapper<OpenCodeReconnectResult>;
   OpenCodeRedoResult: ResolverTypeWrapper<OpenCodeRedoResult>;
@@ -2585,6 +2591,7 @@ export type ResolversParentTypes = ResolversObject<{
   OpenCodeModelsResult: OpenCodeModelsResult;
   OpenCodePermissionListResult: OpenCodePermissionListResult;
   OpenCodePromptInput: OpenCodePromptInput;
+  OpenCodePromptOptionsInput: OpenCodePromptOptionsInput;
   OpenCodeReconnectInput: OpenCodeReconnectInput;
   OpenCodeReconnectResult: OpenCodeReconnectResult;
   OpenCodeRedoResult: OpenCodeRedoResult;
@@ -3629,4 +3636,3 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   WorktreeBranchRenamedEvent?: WorktreeBranchRenamedEventResolvers<ContextType>;
   WorktreeCreateResult?: WorktreeCreateResultResolvers<ContextType>;
 }>;
-

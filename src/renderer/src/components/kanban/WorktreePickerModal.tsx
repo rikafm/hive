@@ -21,6 +21,7 @@ import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useSettingsStore, resolveModelForSdk } from '@/stores/useSettingsStore'
 import { useConnectionStore } from '@/stores/useConnectionStore'
 import { ModelSelector } from '@/components/sessions/ModelSelector'
+import { CodexFastToggle } from '@/components/sessions/CodexFastToggle'
 import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/message-send-times'
 import { snapshotTokenBaseline } from '@/lib/token-baselines'
 import { PLAN_MODE_PREFIX, SUPER_PLAN_MODE_PREFIX, isPlanLike } from '@/lib/constants'
@@ -153,6 +154,9 @@ export function WorktreePickerModal({
   // ── SDK / Model resolution ──────────────────────────────────────
   const availableAgentSdks = useSettingsStore((s) => s.availableAgentSdks)
   const defaultAgentSdk = useSettingsStore((s) => s.defaultAgentSdk) ?? 'opencode'
+  const codexFastMode = useSettingsStore((s) => s.codexFastMode)
+  const codexFastModeAccepted = useSettingsStore((s) => s.codexFastModeAccepted)
+  const updateSetting = useSettingsStore((s) => s.updateSetting)
   const defaultSdkNormalized = defaultAgentSdk === 'terminal' ? 'opencode' : defaultAgentSdk
   const agentSdk = selectedSdk ?? defaultSdkNormalized
 
@@ -380,6 +384,8 @@ export function WorktreePickerModal({
             : mode === 'plan' && !skipPrefix ? PLAN_MODE_PREFIX
             : ''
           const fullPrompt = modePrefix + promptText.trim()
+          const promptOptions =
+            sessionAgentSdk === 'codex' ? { codexFastMode } : undefined
 
           if (mode === 'super-plan') {
             useSessionStore.getState().setSessionMode(sessionId, 'plan')
@@ -387,7 +393,7 @@ export function WorktreePickerModal({
 
           await window.opencodeOps.prompt(connectionPath, connectResult.sessionId, [
             { type: 'text', text: fullPrompt }
-          ], effectiveModel)
+          ], effectiveModel, promptOptions)
         }
         return  // Done with connection path
       } catch {
@@ -545,6 +551,8 @@ export function WorktreePickerModal({
           : mode === 'plan' && !skipPrefix ? PLAN_MODE_PREFIX
           : ''
         const fullPrompt = modePrefix + promptText.trim()
+        const promptOptions =
+          sessionAgentSdk === 'codex' ? { codexFastMode } : undefined
 
         // Auto-revert super-plan → plan immediately (one-shot mode).
         // The prefix is already captured in fullPrompt above.
@@ -554,7 +562,7 @@ export function WorktreePickerModal({
 
         await window.opencodeOps.prompt(worktree.path, connectResult.sessionId, [
           { type: 'text', text: fullPrompt }
-        ], effectiveModel)
+        ], effectiveModel, promptOptions)
       }
     } catch {
       toast.error('Failed to start session')
@@ -583,6 +591,7 @@ export function WorktreePickerModal({
     preAssignOnly,
     selectedModel,
     autoResolvedModel,
+    codexFastMode,
     isConnectionMode,
     connectionId
   ])
@@ -860,11 +869,25 @@ export function WorktreePickerModal({
                   )}
                 </div>
               )}
-              <ModelSelector
-                value={selectedModel ?? autoResolvedModel}
-                onChange={setSelectedModel}
-                agentSdkOverride={agentSdk}
-              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="min-w-0">
+                  <ModelSelector
+                    value={selectedModel ?? autoResolvedModel}
+                    onChange={setSelectedModel}
+                    agentSdkOverride={agentSdk}
+                  />
+                </div>
+                {agentSdk === 'codex' && (
+                  <div className="shrink-0">
+                    <CodexFastToggle
+                      enabled={codexFastMode}
+                      accepted={codexFastModeAccepted}
+                      onToggle={() => updateSetting('codexFastMode', !codexFastMode)}
+                      onAccept={() => updateSetting('codexFastModeAccepted', true)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

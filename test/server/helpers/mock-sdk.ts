@@ -26,8 +26,19 @@ export const MOCK_CLAUDE_CAPABILITIES: AgentSdkCapabilities = {
   supportsPartialStreaming: true
 }
 
+export const MOCK_CODEX_CAPABILITIES: AgentSdkCapabilities = {
+  supportsUndo: true,
+  supportsRedo: false,
+  supportsCommands: true,
+  supportsPermissionRequests: true,
+  supportsQuestionPrompts: true,
+  supportsModelSelection: true,
+  supportsReconnect: true,
+  supportsPartialStreaming: true
+}
+
 export function createMockImplementer(
-  sdkId: 'opencode' | 'claude-code',
+  sdkId: 'opencode' | 'claude-code' | 'codex',
   capabilities: AgentSdkCapabilities
 ): AgentSdkImplementer & {
   hasPendingQuestion: ReturnType<typeof vi.fn>
@@ -89,15 +100,18 @@ export function createMockImplementer(
 export function createMockSdkManager() {
   const opencodeImpl = createMockImplementer('opencode', MOCK_OPENCODE_CAPABILITIES)
   const claudeImpl = createMockImplementer('claude-code', MOCK_CLAUDE_CAPABILITIES)
+  const codexImpl = createMockImplementer('codex', MOCK_CODEX_CAPABILITIES)
 
   return {
     manager: {
       getImplementer: vi.fn((sdkId: string) => {
         if (sdkId === 'claude-code') return claudeImpl
+        if (sdkId === 'codex') return codexImpl
         return opencodeImpl
       }),
       getCapabilities: vi.fn((sdkId: string) => {
         if (sdkId === 'claude-code') return MOCK_CLAUDE_CAPABILITIES
+        if (sdkId === 'codex') return MOCK_CODEX_CAPABILITIES
         return MOCK_OPENCODE_CAPABILITIES
       }),
       setMainWindow: vi.fn(),
@@ -105,6 +119,7 @@ export function createMockSdkManager() {
       defaultSdkId: 'opencode' as const
     },
     opencodeImpl,
-    claudeImpl
+    claudeImpl,
+    codexImpl
   }
 }

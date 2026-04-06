@@ -66,6 +66,11 @@ input OpenCodePromptInput {
   message: String
   parts: [MessagePartInput!]
   model: ModelInput
+  options: OpenCodePromptOptionsInput
+}
+
+input OpenCodePromptOptionsInput {
+  codexFastMode: Boolean
 }
 
 input MessagePartInput {
