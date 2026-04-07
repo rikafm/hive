@@ -31,11 +31,6 @@ interface RemoteInfo {
   url: string | null
 }
 
-interface PRCreationState {
-  creating: boolean
-  sessionId: string
-}
-
 interface AttachedPR {
   number: number
   url: string
@@ -60,7 +55,6 @@ interface GitStoreState {
   reviewTargetBranch: Map<string, string>
 
   // PR lifecycle - keyed by worktree ID
-  prCreation: Map<string, PRCreationState>
   attachedPR: Map<string, AttachedPR>
 
   // Cross-worktree merge default - keyed by project ID
@@ -100,7 +94,6 @@ interface GitStoreState {
   setReviewTargetBranch: (worktreeId: string, branch: string) => void
 
   // PR lifecycle actions
-  setPrCreation: (worktreeId: string, state: PRCreationState | null) => void
   setAttachedPR: (worktreeId: string, pr: AttachedPR | null) => void
   attachPR: (worktreeId: string, prNumber: number, prUrl: string) => Promise<void>
   detachPR: (worktreeId: string) => Promise<void>
@@ -155,7 +148,6 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
   reviewTargetBranch: new Map(),
 
   // PR lifecycle
-  prCreation: new Map(),
   attachedPR: new Map(),
 
   // Cross-worktree merge default
@@ -393,19 +385,6 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
     }
   },
 
-  // Set ephemeral PR creation state for a worktree
-  setPrCreation: (worktreeId: string, state: PRCreationState | null) => {
-    set((s) => {
-      const newMap = new Map(s.prCreation)
-      if (state) {
-        newMap.set(worktreeId, state)
-      } else {
-        newMap.delete(worktreeId)
-      }
-      return { prCreation: newMap }
-    })
-  },
-
   // Set optimistic attached PR cache
   setAttachedPR: (worktreeId: string, pr: AttachedPR | null) => {
     set((s) => {
@@ -636,4 +615,4 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
 }))
 
 // Export types
-export type { GitStatusCode, GitFileStatus, GitBranchInfo, RemoteInfo, PRCreationState, AttachedPR }
+export type { GitStatusCode, GitFileStatus, GitBranchInfo, RemoteInfo, AttachedPR }

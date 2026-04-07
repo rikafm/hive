@@ -19,6 +19,7 @@ import { useWorktreeWatcher } from '@/hooks/useWorktreeWatcher'
 import { useConnectionWatcher } from '@/hooks/useConnectionWatcher'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import { ErrorBoundary, ErrorFallback } from '@/components/error'
+import { CreatePRModal } from '@/components/pr/CreatePRModal'
 import { ProjectSettingsDialog } from '@/components/projects/ProjectSettingsDialog'
 import { useProjectStore } from '@/stores/useProjectStore'
 import { useWorktreeStore } from '@/stores/useWorktreeStore'
@@ -204,6 +205,14 @@ export function AppLayout({ children }: AppLayoutProps): React.JSX.Element {
         <FileSearchDialog />
       </ErrorBoundary>
       <GlobalProjectSettings />
+      {selectedWorktreeId && selectedWorktreePath && (
+        <ErrorBoundary componentName="CreatePRModal" fallback={null}>
+          <CreatePRModal
+            worktreeId={selectedWorktreeId}
+            worktreePath={selectedWorktreePath}
+          />
+        </ErrorBoundary>
+      )}
       <AgentSetupGuard />
       <HelpOverlay />
     </div>

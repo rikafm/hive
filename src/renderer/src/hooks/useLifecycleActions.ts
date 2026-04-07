@@ -20,7 +20,6 @@ interface PRListItem {
 interface LifecycleActions {
   // State
   attachedPR: AttachedPR | null
-  isCreatingPR: boolean
   hasAttachedPR: boolean
   prLiveState: { state?: string; title?: string } | null
   isGitHub: boolean
@@ -35,7 +34,6 @@ interface LifecycleActions {
 
   // Actions
   createCodeReview: (targetBranch?: string) => Promise<string | null>
-  createPR: (targetBranch?: string) => Promise<string | null>
   mergePR: () => Promise<boolean>
   archiveWorktree: () => Promise<boolean>
   attachPR: (prNumber: number) => void
@@ -98,10 +96,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
     worktreeId ? s.remoteInfo.get(worktreeId) : undefined
   )
 
-  const prCreation = useGitStore((s) =>
-    worktreeId ? s.prCreation.get(worktreeId) : undefined
-  )
-
   const storeAttachedPR = useGitStore((s) =>
     worktreeId ? s.attachedPR.get(worktreeId) : undefined
   )
@@ -124,7 +118,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
 
   // --- Derived state ---
   const isGitHub = remoteInfo?.isGitHub ?? false
-  const isCreatingPR = prCreation?.creating ?? false
   const attachedPR = storeAttachedPR ?? null
   const hasAttachedPR = !!storeAttachedPR
   const isCleanTree = !fileStatuses || fileStatuses.length === 0
@@ -155,46 +148,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
   }, [storeAttachedPR?.number])
 
   // --- Actions ---
-
-  const createPR = useCallback(async (targetBranch?: string): Promise<string | null> => {
-    if (!worktreeId || !worktree?.path) return null
-
-    const projectId = resolveProjectId(worktreeId)
-    if (!projectId) {
-      toast.error('Could not find project for worktree')
-      return null
-    }
-
-    const currentBranchInfo = useGitStore.getState().branchInfoByWorktree.get(worktree.path)
-    const currentPrTarget = useGitStore.getState().prTargetBranch.get(worktreeId)
-    const target = targetBranch || currentPrTarget || currentBranchInfo?.tracking || 'origin/main'
-
-    const sessionStore = useSessionStore.getState()
-    const result = await sessionStore.createSession(worktreeId, projectId)
-    if (!result.success || !result.session) {
-      toast.error('Failed to create PR session')
-      return null
-    }
-
-    await sessionStore.updateSessionName(result.session.id, `PR → ${target}`)
-    sessionStore.setPendingMessage(
-      result.session.id,
-      [
-        `Create a pull request targeting ${target}.`,
-        `Use \`gh pr create\` to create the PR.`,
-        `Base the PR title and description on the git diff between HEAD and ${target}.`,
-        `Make the description comprehensive, summarizing all changes.`
-      ].join(' ')
-    )
-
-    // Tag this session as a PR session for detection
-    useGitStore.getState().setPrCreation(worktreeId, {
-      creating: true,
-      sessionId: result.session.id
-    })
-
-    return result.session.id
-  }, [worktreeId, worktree?.path])
 
   const createCodeReview = useCallback(async (targetBranch?: string): Promise<string | null> => {
     if (!worktreeId || !worktree?.path) return null
@@ -391,7 +344,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
   if (!worktreeId) {
     return {
       attachedPR: null,
-      isCreatingPR: false,
       hasAttachedPR: false,
       prLiveState: null,
       isGitHub: false,
@@ -404,7 +356,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
       isCleanTree: true,
       isDefault: false,
       createCodeReview: noopString,
-      createPR: noopString,
       mergePR: noopBool,
       archiveWorktree: noopBool,
       attachPR: noopVoid,
@@ -421,7 +372,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
   return {
     // State
     attachedPR,
-    isCreatingPR,
     hasAttachedPR,
     prLiveState,
     isGitHub,
@@ -436,7 +386,6 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
 
     // Actions
     createCodeReview,
-    createPR,
     mergePR,
     archiveWorktree: archiveWorktreeAction,
     attachPR: attachPRAction,
