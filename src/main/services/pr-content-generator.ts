@@ -17,7 +17,7 @@ Rules:
 - under Summary, provide short bullet points
 - under Testing, include bullet points with concrete checks or 'Not run'`
 
-interface GeneratePRContentOptions {
+export interface GeneratePRContentOptions {
   baseBranch: string
   headBranch: string
   commitSummary: string
@@ -26,7 +26,7 @@ interface GeneratePRContentOptions {
   provider: AgentSdkId
 }
 
-interface PRContent {
+export interface PRContent {
   title: string
   body: string
 }
@@ -136,7 +136,7 @@ function sanitizeTitle(title: string): string {
 }
 
 /**
- * Truncate a string to the given byte-approximate length.
+ * Truncate a string to the given character-approximate length.
  */
 function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text

@@ -6,6 +6,7 @@ import { readFile, unlink } from 'node:fs/promises'
 
 import { loadClaudeSDK } from './claude-sdk-loader'
 import { detectAgentSdks } from './system-info'
+import type { AgentSdkDetection } from './system-info'
 import { createLogger } from './logger'
 import type { AgentSdkId } from './agent-sdk-types'
 
@@ -13,6 +14,20 @@ const log = createLogger({ component: 'TextGenerationRouter' })
 
 const TIMEOUT_MS = 30_000
 const MAX_RETRIES = 1
+const MAX_OUTPUT_SIZE = 1024 * 1024 // 1 MB
+
+let cachedSdks: AgentSdkDetection | null = null
+let cacheTimestamp = 0
+const SDK_CACHE_TTL_MS = 60_000
+
+function getCachedSdkDetection(): AgentSdkDetection {
+  const now = Date.now()
+  if (!cachedSdks || now - cacheTimestamp > SDK_CACHE_TTL_MS) {
+    cachedSdks = detectAgentSdks()
+    cacheTimestamp = now
+  }
+  return cachedSdks
+}
 
 /**
  * Generate text using the specified provider's LLM.
@@ -67,7 +82,7 @@ export async function generateText(
 function resolveProvider(provider: AgentSdkId): AgentSdkId | null {
   if (provider === 'terminal') return null
 
-  const sdks = detectAgentSdks()
+  const sdks = getCachedSdkDetection()
   const providerAvailable: Record<Exclude<AgentSdkId, 'terminal'>, boolean> = {
     'claude-code': sdks.claude,
     codex: sdks.codex,
@@ -95,7 +110,7 @@ function generateWithProvider(
 ): Promise<string | null> {
   switch (provider) {
     case 'claude-code':
-      return generateWithClaude(prompt, systemPrompt)
+      return generateWithClaude(prompt, systemPrompt, modelOverride)
     case 'codex':
       return generateWithCodex(prompt, systemPrompt, modelOverride)
     case 'opencode':
@@ -108,7 +123,7 @@ function generateWithProvider(
 /**
  * Generate text using the Claude Agent SDK (haiku model).
  */
-async function generateWithClaude(prompt: string, systemPrompt: string): Promise<string | null> {
+async function generateWithClaude(prompt: string, systemPrompt: string, modelOverride?: string): Promise<string | null> {
   const sdk = await loadClaudeSDK()
 
   const abortController = new AbortController()
@@ -119,7 +134,7 @@ async function generateWithClaude(prompt: string, systemPrompt: string): Promise
       prompt,
       options: {
         cwd: homedir(),
-        model: 'haiku',
+        model: modelOverride ?? 'haiku',
         maxTurns: 1,
         abortController,
         systemPrompt,
@@ -225,6 +240,7 @@ function spawnWithStdin(command: string, args: string[], input: string): Promise
 
     let stdout = ''
     let stderr = ''
+    let killed = false
 
     const timeout = setTimeout(() => {
       proc.kill('SIGKILL')
@@ -233,10 +249,22 @@ function spawnWithStdin(command: string, args: string[], input: string): Promise
 
     proc.stdout?.on('data', (chunk: Buffer) => {
       stdout += chunk.toString()
+      if (stdout.length > MAX_OUTPUT_SIZE) {
+        killed = true
+        proc.kill('SIGKILL')
+        clearTimeout(timeout)
+        reject(new Error(`${command} stdout exceeded ${MAX_OUTPUT_SIZE} bytes`))
+      }
     })
 
     proc.stderr?.on('data', (chunk: Buffer) => {
       stderr += chunk.toString()
+      if (stderr.length > MAX_OUTPUT_SIZE) {
+        killed = true
+        proc.kill('SIGKILL')
+        clearTimeout(timeout)
+        reject(new Error(`${command} stderr exceeded ${MAX_OUTPUT_SIZE} bytes`))
+      }
     })
 
     proc.on('error', (err) => {
@@ -246,6 +274,7 @@ function spawnWithStdin(command: string, args: string[], input: string): Promise
 
     proc.on('close', (code) => {
       clearTimeout(timeout)
+      if (killed) return
       if (code === 0) {
         resolve(stdout)
       } else {
@@ -253,7 +282,6 @@ function spawnWithStdin(command: string, args: string[], input: string): Promise
       }
     })
 
-    proc.stdin?.write(input)
-    proc.stdin?.end()
+    proc.stdin?.end(input)
   })
 }
