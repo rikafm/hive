@@ -99,6 +99,14 @@ export function Header(): React.JSX.Element {
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId)
   const projects = useProjectStore((s) => s.projects)
   const { selectedWorktreeId, worktreesByProject } = useWorktreeStore()
+  const selectedWorktreePath = useMemo(() => {
+    if (!selectedWorktreeId) return null
+    for (const worktrees of worktreesByProject.values()) {
+      const wt = worktrees.find((w) => w.id === selectedWorktreeId)
+      if (wt) return wt.path
+    }
+    return null
+  }, [selectedWorktreeId, worktreesByProject])
   const createSession = useSessionStore((s) => s.createSession)
   const updateSessionName = useSessionStore((s) => s.updateSessionName)
   const setPendingMessage = useSessionStore((s) => s.setPendingMessage)
@@ -631,7 +639,14 @@ export function Header(): React.JSX.Element {
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={() => useGitStore.getState().setCreatePRModalOpen(true)}
+                onClick={() => {
+                  if (selectedWorktreeId && selectedWorktreePath) {
+                    useGitStore.getState().setCreatePRModalOpen(true, {
+                      worktreeId: selectedWorktreeId,
+                      worktreePath: selectedWorktreePath,
+                    })
+                  }
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setPrPickerOpen(true)

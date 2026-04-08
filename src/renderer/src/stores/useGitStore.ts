@@ -70,6 +70,8 @@ interface GitStoreState {
 
   // Create PR modal
   createPRModalOpen: boolean
+  createPRWorktreeId: string | null
+  createPRWorktreePath: string | null
 
   // Actions
   loadFileStatuses: (worktreePath: string) => Promise<void>
@@ -108,7 +110,7 @@ interface GitStoreState {
   setSelectedDiffBranch: (worktreePath: string, branch: string) => void
 
   // Create PR modal actions
-  setCreatePRModalOpen: (open: boolean) => void
+  setCreatePRModalOpen: (open: boolean, context?: { worktreeId: string; worktreePath: string }) => void
 
   // Commit, Push, Pull actions
   commit: (
@@ -162,6 +164,8 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
 
   // Create PR modal
   createPRModalOpen: false,
+  createPRWorktreeId: null,
+  createPRWorktreePath: null,
 
   // Load file statuses for a worktree
   loadFileStatuses: async (worktreePath: string) => {
@@ -526,8 +530,21 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
   },
 
   // Open/close create PR modal
-  setCreatePRModalOpen: (open: boolean) => {
-    set({ createPRModalOpen: open })
+  setCreatePRModalOpen: (open: boolean, context?: { worktreeId: string; worktreePath: string }) => {
+    if (open && context) {
+      set({
+        createPRModalOpen: true,
+        createPRWorktreeId: context.worktreeId,
+        createPRWorktreePath: context.worktreePath,
+      })
+    } else if (!open) {
+      set({
+        createPRModalOpen: false,
+        createPRWorktreeId: null,
+        createPRWorktreePath: null,
+      })
+    }
+    // Opening without context is a no-op (all callers must provide context)
   },
 
   // Commit staged changes

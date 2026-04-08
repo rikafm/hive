@@ -129,6 +129,12 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
   const [prLiveState, setPrLiveState] = useState<{ state?: string; title?: string } | null>(null)
   const [remoteBranches, setRemoteBranches] = useState<{ name: string }[]>([])
 
+  // --- Ensure remote info is loaded for this worktree (needed for isGitHub check) ---
+  useEffect(() => {
+    if (!worktreeId || !worktree?.path || remoteInfo) return
+    useGitStore.getState().checkRemoteInfo(worktreeId, worktree.path)
+  }, [worktreeId, worktree?.path, remoteInfo])
+
   // --- Load remote branches when worktree path changes ---
   useEffect(() => {
     if (!worktree?.path) {

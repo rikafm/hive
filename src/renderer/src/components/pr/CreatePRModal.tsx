@@ -232,11 +232,19 @@ export function CreatePRModal({
           ? `Commit: ${result.commitHash.slice(0, 7)}`
           : undefined
       })
+      // Refresh commit count and branch info after committing
+      if (baseBranch) {
+        window.gitOps
+          .getRangeDiff(worktreePath, baseBranch)
+          .then((rd) => setCommitCount(rd.commitCount))
+          .catch(() => {})
+      }
+      useGitStore.getState().loadBranchInfo(worktreePath)
       setPhase('form')
     } else {
       setCommitError(result.error ?? 'Commit failed')
     }
-  }, [worktreePath, commitSummary, commitDescription, gitCommit])
+  }, [worktreePath, commitSummary, commitDescription, gitCommit, baseBranch])
 
   const handleSkipCommit = useCallback(() => {
     setPhase('form')
