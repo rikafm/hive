@@ -302,6 +302,29 @@ export const gitQueryResolvers: Resolvers = {
         }
         return { success: false, error: message }
       }
+    },
+
+    gitRangeDiff: async (_parent, { worktreePath, baseBranch }, _ctx) => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.getRangeDiff(baseBranch)
+      } catch (error) {
+        return {
+          commitSummary: '',
+          diffSummary: '',
+          diffPatch: '',
+          commitCount: 0
+        }
+      }
+    },
+
+    gitNeedsPush: async (_parent, { worktreePath }, _ctx) => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.needsPush()
+      } catch {
+        return false
+      }
     }
   }
 }

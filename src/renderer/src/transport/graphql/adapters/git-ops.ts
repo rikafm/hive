@@ -518,6 +518,71 @@ export function createGitOpsAdapter(): GitOpsApi {
       return { success: r.success, comments, error: r.error ?? undefined }
     },
 
+    // ─── PR creation / range diff ────────────────────────────────
+    async createPR(
+      worktreePath: string,
+      baseBranch: string,
+      title: string,
+      body: string
+    ): Promise<{ success: boolean; url?: string; number?: number; error?: string }> {
+      const data = await graphqlQuery<{
+        gitCreatePR: { success: boolean; url?: string; number?: number; error?: string }
+      }>(
+        `mutation ($worktreePath: String!, $baseBranch: String!, $title: String!, $body: String!) {
+          gitCreatePR(worktreePath: $worktreePath, baseBranch: $baseBranch, title: $title, body: $body) {
+            success url number error
+          }
+        }`,
+        { worktreePath, baseBranch, title, body }
+      )
+      return data.gitCreatePR
+    },
+
+    async generatePRContent(
+      worktreePath: string,
+      baseBranch: string,
+      provider: string
+    ): Promise<{ success: boolean; title?: string; body?: string; error?: string }> {
+      const data = await graphqlQuery<{
+        gitGeneratePRContent: { success: boolean; title?: string; body?: string; error?: string }
+      }>(
+        `mutation ($worktreePath: String!, $baseBranch: String!, $provider: String!) {
+          gitGeneratePRContent(worktreePath: $worktreePath, baseBranch: $baseBranch, provider: $provider) {
+            success title body error
+          }
+        }`,
+        { worktreePath, baseBranch, provider }
+      )
+      return data.gitGeneratePRContent
+    },
+
+    async getRangeDiff(
+      worktreePath: string,
+      baseBranch: string
+    ): Promise<{ commitSummary: string; diffSummary: string; diffPatch: string; commitCount: number }> {
+      const data = await graphqlQuery<{
+        gitRangeDiff: { commitSummary: string; diffSummary: string; diffPatch: string; commitCount: number }
+      }>(
+        `query ($worktreePath: String!, $baseBranch: String!) {
+          gitRangeDiff(worktreePath: $worktreePath, baseBranch: $baseBranch) {
+            commitSummary diffSummary diffPatch commitCount
+          }
+        }`,
+        { worktreePath, baseBranch }
+      )
+      return data.gitRangeDiff
+    },
+
+    async needsPush(worktreePath: string): Promise<boolean> {
+      const data = await graphqlQuery<{ gitNeedsPush: boolean }>(
+        `query ($worktreePath: String!) {
+          gitNeedsPush(worktreePath: $worktreePath)
+        }`,
+        { worktreePath }
+      )
+      return data.gitNeedsPush
+    },
+
     // ─── Branch diff queries ────────────────────────────────────
     async getBranchDiffFiles(
       worktreePath: string,

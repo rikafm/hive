@@ -1,5 +1,5 @@
-import { homedir } from 'node:os'
-import { loadClaudeSDK } from './claude-sdk-loader'
+import { generateText } from './text-generation-router'
+import type { AgentSdkId } from './agent-sdk-types'
 import { createLogger } from './logger'
 
 const log = createLogger({ component: 'ClaudeSessionTitle' })
@@ -49,11 +49,9 @@ Your output must be:
 "@App.tsx add dark mode toggle" → Dark mode toggle in App
 </examples>`
 
-const TITLE_TIMEOUT_MS = 15_000
 const MAX_MESSAGE_LENGTH = 2000
 const MAX_TITLE_LENGTH = 100
 const TITLE_TRUNCATE_LENGTH = 97
-const MAX_RETRIES = 2
 
 /**
  * Post-process the raw LLM response into a clean title string.
@@ -80,18 +78,17 @@ function postProcessTitle(raw: string): string | null {
 }
 
 /**
- * Use the Claude Agent SDK with Haiku model to generate a short session title.
+ * Generate a short session title using the provider-aware text generation router.
  * Returns the generated title, or null if generation fails for any reason.
  *
- * Retries up to MAX_RETRIES times on failure. Uses the cheapest inference path
- * (effort: low, thinking: disabled, no tools, no session persistence).
+ * The router handles timeouts, retries, and provider fallback internally.
  *
  * @param message - The user's first message to derive a title from
- * @param claudeBinaryPath - Optional path to the Claude CLI binary (for ASAR compatibility)
+ * @param provider - Which agent SDK provider to use for generation (defaults to 'claude-code')
  */
 export async function generateSessionTitle(
   message: string,
-  claudeBinaryPath?: string | null
+  provider: AgentSdkId = 'claude-code'
 ): Promise<string | null> {
   const truncatedMessage =
     message.length > MAX_MESSAGE_LENGTH ? message.slice(0, MAX_MESSAGE_LENGTH) + '...' : message
@@ -99,59 +96,24 @@ export async function generateSessionTitle(
   const userPrompt = `Generate a title for this conversation:\n${truncatedMessage}`
 
   try {
-    const sdk = await loadClaudeSDK()
+    const result = await generateText(userPrompt, SYSTEM_PROMPT, provider)
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const abortController = new AbortController()
-      const timeout = setTimeout(() => abortController.abort(), TITLE_TIMEOUT_MS)
-
-      try {
-        const query = sdk.query({
-          prompt: userPrompt,
-          options: {
-            cwd: homedir(),
-            model: 'haiku',
-            maxTurns: 1,
-            abortController,
-            systemPrompt: SYSTEM_PROMPT,
-            effort: 'low',
-            thinking: { type: 'disabled' },
-            tools: [],
-            persistSession: false,
-            ...(claudeBinaryPath ? { pathToClaudeCodeExecutable: claudeBinaryPath } : {})
-          }
-        })
-
-        let resultText = ''
-        for await (const msg of query) {
-          if (msg.type === 'result') {
-            resultText = (msg as { result?: string }).result ?? ''
-            break
-          }
-        }
-
-        clearTimeout(timeout)
-
-        const title = postProcessTitle(resultText)
-        if (title) {
-          log.info('generateSessionTitle: generated', { title, attempt })
-          return title
-        }
-
-        log.warn('generateSessionTitle: empty title from SDK', { attempt })
-      } catch (err: unknown) {
-        clearTimeout(timeout)
-        const errMsg = err instanceof Error ? err.message : String(err)
-        log.warn('generateSessionTitle: attempt failed', { attempt, error: errMsg })
-        // Continue to next retry
-      }
+    if (!result) {
+      log.warn('generateSessionTitle: no result from text generation router')
+      return null
     }
 
-    log.warn('generateSessionTitle: all attempts exhausted')
+    const title = postProcessTitle(result)
+    if (title) {
+      log.info('generateSessionTitle: generated', { title, provider })
+      return title
+    }
+
+    log.warn('generateSessionTitle: empty title after post-processing')
     return null
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err)
-    log.warn('generateSessionTitle: SDK load or unexpected failure', { error: errMsg })
+    log.warn('generateSessionTitle: generation failed', { error: errMsg })
     return null
   }
 }

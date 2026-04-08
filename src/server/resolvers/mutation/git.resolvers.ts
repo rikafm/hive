@@ -2,6 +2,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import type { Resolvers } from '../../__generated__/resolvers-types'
 import { createGitService, parseWorktreeForBranch } from '../../../main/services/git-service'
+import type { AgentSdkId } from '../../../main/services/agent-sdk-types'
 import { getEventBus } from '../../event-bus'
 import { watchWorktree, unwatchWorktree } from '../../../main/services/worktree-watcher'
 import { watchBranch, unwatchBranch } from '../../../main/services/branch-watcher'
@@ -238,6 +239,46 @@ export const gitMutationResolvers: Resolvers = {
         return { success: true }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+      }
+    },
+
+    gitCreatePR: async (_parent, { worktreePath, baseBranch, title, body }) => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.createPullRequest({ baseBranch, title, body })
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+    },
+
+    gitGeneratePRContent: async (_parent, { worktreePath, baseBranch, provider }) => {
+      try {
+        const validProviders = ['claude-code', 'codex', 'opencode', 'terminal']
+        if (!validProviders.includes(provider)) {
+          return { success: false, error: `Invalid provider: ${provider}` }
+        }
+
+        const gitService = createGitService(worktreePath)
+        const rangeDiff = await gitService.getRangeDiff(baseBranch)
+        const branchInfo = await gitService.getBranchInfo()
+
+        const { generatePRContent } = await import('../../../main/services/pr-content-generator')
+        const result = await generatePRContent({
+          baseBranch,
+          headBranch: branchInfo.branch?.name ?? 'HEAD',
+          commitSummary: rangeDiff.commitSummary,
+          diffSummary: rangeDiff.diffSummary,
+          diffPatch: rangeDiff.diffPatch,
+          provider: provider as AgentSdkId
+        })
+
+        if (!result) return { success: false, error: 'Content generation failed' }
+        return { success: true, title: result.title, body: result.body }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
       }
     }
   }

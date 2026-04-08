@@ -56,6 +56,7 @@ import { useConnectionStore } from '@/stores/useConnectionStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useProjectStore } from '@/stores/useProjectStore'
 import { useSettingsStore, resolveModelForSdk } from '@/stores/useSettingsStore'
+import { useGitStore } from '@/stores/useGitStore'
 import { notifyKanbanSessionSync } from '@/stores/store-coordination'
 import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/message-send-times'
 import { snapshotTokenBaseline } from '@/lib/token-baselines'
@@ -2007,7 +2008,7 @@ function ReviewModeContent({
             variant="outline"
             className="gap-1.5"
             disabled={lifecycleLoading}
-            onClick={() => pinAndActivateSession(() => lifecycle.createPR())}
+            onClick={() => useGitStore.getState().setCreatePRModalOpen(true)}
           >
             <GitPullRequest className="h-3.5 w-3.5" />
             Create PR

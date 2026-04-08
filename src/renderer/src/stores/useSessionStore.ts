@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { SelectedModel } from './useSettingsStore'
-import { useGitStore } from './useGitStore'
 import { useWorktreeStore } from './useWorktreeStore'
 import { notifyKanbanSessionSync } from './store-coordination'
 import { useSettingsStore } from './useSettingsStore'
@@ -646,15 +645,6 @@ export const useSessionStore = create<SessionState>()(
                 state.activePinnedSessionId === sessionId ? null : state.activePinnedSessionId
             }
           })
-
-          // If this session was a PR-creating session, cancel the PR flow
-          const gitStore = useGitStore.getState()
-          for (const [worktreeId, creation] of gitStore.prCreation.entries()) {
-            if (creation.sessionId === sessionId && creation.creating) {
-              gitStore.setPrCreation(worktreeId, null)
-              break
-            }
-          }
 
           return { success: true }
         } catch (error) {

@@ -1661,7 +1661,7 @@ export class ClaudeCodeImplementer implements AgentSdkImplementer {
     userMessage: string
   ): Promise<void> {
     try {
-      const title = await generateSessionTitle(userMessage, this.claudeBinaryPath)
+      const title = await generateSessionTitle(userMessage, 'claude-code')
       if (!title) return
 
       // 1. Update session name in DB

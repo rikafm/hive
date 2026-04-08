@@ -52,7 +52,6 @@ import { useTipStore } from '@/stores/useTipStore'
 import { Tip } from '@/components/ui/Tip'
 import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { QuickActions } from './QuickActions'
-import { usePRDetection } from '@/hooks/usePRDetection'
 import { useLifecycleActions } from '@/hooks/useLifecycleActions'
 import { usePinAndActivateSession } from '@/hooks/usePinAndActivateSession'
 import hiveLogo from '@/assets/icon.png'
@@ -132,9 +131,6 @@ export function Header(): React.JSX.Element {
 
   const hasProjects = projects.length > 0
 
-  // Monitor PR session stream events for PR URL detection
-  usePRDetection(selectedWorktreeId)
-
   const selectedProject = projects.find((p) => p.id === selectedProjectId)
   const selectedWorktree = (() => {
     if (!selectedWorktreeId) return null
@@ -162,7 +158,7 @@ export function Header(): React.JSX.Element {
 
   // Destructure lifecycle state for template use
   const {
-    attachedPR, isCreatingPR, hasAttachedPR, prLiveState, isGitHub,
+    attachedPR, hasAttachedPR, prLiveState, isGitHub,
     isMergingPR, isArchiving: isArchivingWorktree, branchInfo, remoteBranches,
     prTargetBranch, reviewTargetBranch, isCleanTree
   } = lifecycle
@@ -519,8 +515,8 @@ export function Header(): React.JSX.Element {
             </DropdownMenu>
           </>
         )}
-        {/* PR Badge with Popover Picker — shown when a PR is attached and not creating */}
-        {!isConnectionMode && isGitHub && hasAttachedPR && !isCreatingPR && (
+        {/* PR Badge with Popover Picker — shown when a PR is attached */}
+        {!isConnectionMode && isGitHub && hasAttachedPR && (
           <ContextMenu>
             <Popover open={prPickerOpen} onOpenChange={setPrPickerOpen}>
               <ContextMenuTrigger asChild>
@@ -627,28 +623,15 @@ export function Header(): React.JSX.Element {
             </ContextMenuContent>
           </ContextMenu>
         )}
-        {/* Creating PR spinner */}
-        {!isConnectionMode && isGitHub && isCreatingPR && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            disabled
-            data-testid="pr-creating-button"
-          >
-            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-            PR
-          </Button>
-        )}
-        {/* Create PR button — shown when no PR attached and not creating */}
-        {!isConnectionMode && isGitHub && !hasAttachedPR && !isCreatingPR && (
+        {/* Create PR button — shown when no PR attached */}
+        {!isConnectionMode && isGitHub && !hasAttachedPR && (
           <Popover open={prPickerOpen} onOpenChange={setPrPickerOpen}>
             <PopoverAnchor asChild>
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={() => pinAndActivate(() => lifecycle.createPR())}
+                onClick={() => useGitStore.getState().setCreatePRModalOpen(true)}
                 onContextMenu={(e) => {
                   e.preventDefault()
                   setPrPickerOpen(true)

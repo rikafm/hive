@@ -31,11 +31,6 @@ interface RemoteInfo {
   url: string | null
 }
 
-interface PRCreationState {
-  creating: boolean
-  sessionId: string
-}
-
 interface AttachedPR {
   number: number
   url: string
@@ -60,7 +55,6 @@ interface GitStoreState {
   reviewTargetBranch: Map<string, string>
 
   // PR lifecycle - keyed by worktree ID
-  prCreation: Map<string, PRCreationState>
   attachedPR: Map<string, AttachedPR>
 
   // Cross-worktree merge default - keyed by project ID
@@ -73,6 +67,9 @@ interface GitStoreState {
 
   // Diff branch comparison - keyed by worktree path
   selectedDiffBranch: Map<string, string>
+
+  // Create PR modal
+  createPRModalOpen: boolean
 
   // Actions
   loadFileStatuses: (worktreePath: string) => Promise<void>
@@ -97,7 +94,6 @@ interface GitStoreState {
   setReviewTargetBranch: (worktreeId: string, branch: string) => void
 
   // PR lifecycle actions
-  setPrCreation: (worktreeId: string, state: PRCreationState | null) => void
   setAttachedPR: (worktreeId: string, pr: AttachedPR | null) => void
   attachPR: (worktreeId: string, prNumber: number, prUrl: string) => Promise<void>
   detachPR: (worktreeId: string) => Promise<void>
@@ -110,6 +106,9 @@ interface GitStoreState {
 
   // Diff branch comparison actions
   setSelectedDiffBranch: (worktreePath: string, branch: string) => void
+
+  // Create PR modal actions
+  setCreatePRModalOpen: (open: boolean) => void
 
   // Commit, Push, Pull actions
   commit: (
@@ -149,7 +148,6 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
   reviewTargetBranch: new Map(),
 
   // PR lifecycle
-  prCreation: new Map(),
   attachedPR: new Map(),
 
   // Cross-worktree merge default
@@ -161,6 +159,9 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
 
   // Diff branch comparison
   selectedDiffBranch: new Map(),
+
+  // Create PR modal
+  createPRModalOpen: false,
 
   // Load file statuses for a worktree
   loadFileStatuses: async (worktreePath: string) => {
@@ -384,19 +385,6 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
     }
   },
 
-  // Set ephemeral PR creation state for a worktree
-  setPrCreation: (worktreeId: string, state: PRCreationState | null) => {
-    set((s) => {
-      const newMap = new Map(s.prCreation)
-      if (state) {
-        newMap.set(worktreeId, state)
-      } else {
-        newMap.delete(worktreeId)
-      }
-      return { prCreation: newMap }
-    })
-  },
-
   // Set optimistic attached PR cache
   setAttachedPR: (worktreeId: string, pr: AttachedPR | null) => {
     set((s) => {
@@ -537,6 +525,11 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
     })
   },
 
+  // Open/close create PR modal
+  setCreatePRModalOpen: (open: boolean) => {
+    set({ createPRModalOpen: open })
+  },
+
   // Commit staged changes
   commit: async (worktreePath: string, message: string) => {
     set({ isCommitting: true, error: null })
@@ -622,4 +615,4 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
 }))
 
 // Export types
-export type { GitStatusCode, GitFileStatus, GitBranchInfo, RemoteInfo, PRCreationState, AttachedPR }
+export type { GitStatusCode, GitFileStatus, GitBranchInfo, RemoteInfo, AttachedPR }

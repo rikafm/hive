@@ -1221,6 +1221,41 @@ declare global {
         success: boolean
         error?: string
       }>
+      // Create a pull request via gh CLI
+      createPR: (
+        worktreePath: string,
+        baseBranch: string,
+        title: string,
+        body: string
+      ) => Promise<{
+        success: boolean
+        url?: string
+        number?: number
+        error?: string
+      }>
+      // Generate PR content (title + body) using AI
+      generatePRContent: (
+        worktreePath: string,
+        baseBranch: string,
+        provider: string
+      ) => Promise<{
+        success: boolean
+        title?: string
+        body?: string
+        error?: string
+      }>
+      // Get range diff between base branch and HEAD
+      getRangeDiff: (
+        worktreePath: string,
+        baseBranch: string
+      ) => Promise<{
+        commitSummary: string
+        diffSummary: string
+        diffPatch: string
+        commitCount: number
+      }>
+      // Check if current branch needs push
+      needsPush: (worktreePath: string) => Promise<boolean>
       // Get list of files changed between current worktree and a branch
       getBranchDiffFiles: (
         worktreePath: string,
