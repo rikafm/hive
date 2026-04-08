@@ -36,11 +36,11 @@ describe('Create PR worktree context', () => {
     expect(state.createPRWorktreePath).toBeNull()
   })
 
-  test('setCreatePRModalOpen without context opens modal with null worktree fields', () => {
+  test('setCreatePRModalOpen without context is a no-op', () => {
     useGitStore.getState().setCreatePRModalOpen(true)
 
     const state = useGitStore.getState()
-    expect(state.createPRModalOpen).toBe(true)
+    expect(state.createPRModalOpen).toBe(false)
     expect(state.createPRWorktreeId).toBeNull()
     expect(state.createPRWorktreePath).toBeNull()
   })

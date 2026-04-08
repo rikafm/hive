@@ -537,15 +537,14 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
         createPRWorktreeId: context.worktreeId,
         createPRWorktreePath: context.worktreePath,
       })
-    } else if (open) {
-      set({ createPRModalOpen: true })
-    } else {
+    } else if (!open) {
       set({
         createPRModalOpen: false,
         createPRWorktreeId: null,
         createPRWorktreePath: null,
       })
     }
+    // Opening without context is a no-op (all callers must provide context)
   },
 
   // Commit staged changes
