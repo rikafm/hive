@@ -2,11 +2,17 @@ export { registerDatabaseHandlers } from './database-handlers'
 export { registerProjectHandlers } from './project-handlers'
 export { registerWorktreeHandlers } from './worktree-handlers'
 export { registerOpenCodeHandlers, cleanupOpenCode } from './opencode-handlers'
-export { registerFileTreeHandlers, cleanupFileTreeWatchers } from './file-tree-handlers'
+export {
+  registerFileTreeHandlers,
+  cleanupFileTreeWatchers,
+  getFileTreeWatcherCount
+} from './file-tree-handlers'
 export {
   registerGitFileHandlers,
   cleanupWorktreeWatchers,
-  cleanupBranchWatchers
+  cleanupBranchWatchers,
+  getWorktreeWatcherCount,
+  getBranchWatcherCount
 } from './git-file-handlers'
 export { registerSettingsHandlers } from './settings-handlers'
 export { registerFileHandlers } from './file-handlers'

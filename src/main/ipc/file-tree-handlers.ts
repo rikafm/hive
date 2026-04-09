@@ -629,6 +629,10 @@ export function registerFileTreeHandlers(window: BrowserWindow): void {
   )
 }
 
+export function getFileTreeWatcherCount(): number {
+  return watchers.size
+}
+
 // Cleanup all watchers (called on app quit)
 export async function cleanupFileTreeWatchers(): Promise<void> {
   log.info('Cleaning up file tree watchers', { count: watchers.size })

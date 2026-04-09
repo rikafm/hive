@@ -1845,6 +1845,11 @@ const usageOps = {
   fetchOpenai: () => ipcRenderer.invoke('usage:fetchOpenai')
 }
 
+const perfDiagnosticsOps = {
+  enable: (enabled: boolean) => ipcRenderer.invoke('perf-diagnostics:enable', enabled),
+  getSnapshot: () => ipcRenderer.invoke('perf-diagnostics:snapshot')
+}
+
 const analyticsOps = {
   track: (event: string, properties?: Record<string, unknown>) =>
     ipcRenderer.invoke('telemetry:track', event, properties),
@@ -2018,6 +2023,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('connectionOps', connectionOps)
     contextBridge.exposeInMainWorld('usageOps', usageOps)
     contextBridge.exposeInMainWorld('analyticsOps', analyticsOps)
+    contextBridge.exposeInMainWorld('perfDiagnosticsOps', perfDiagnosticsOps)
     contextBridge.exposeInMainWorld('kanban', kanban)
     contextBridge.exposeInMainWorld('ticketImport', ticketImport)
   } catch (error) {
@@ -2056,6 +2062,8 @@ if (process.contextIsolated) {
   window.usageOps = usageOps
   // @ts-expect-error (define in dts)
   window.analyticsOps = analyticsOps
+  // @ts-expect-error (define in dts)
+  window.perfDiagnosticsOps = perfDiagnosticsOps
   // @ts-expect-error (define in dts)
   window.kanban = kanban
   // @ts-expect-error (define in dts)

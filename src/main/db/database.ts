@@ -954,6 +954,12 @@ export class DatabaseService {
     return rows.map((row) => this.mapSessionRow(row))
   }
 
+  countActiveSessions(): number {
+    const db = this.getDb()
+    const row = db.prepare("SELECT COUNT(*) as count FROM sessions WHERE status = 'active'").get() as { count: number } | undefined
+    return row?.count ?? 0
+  }
+
   updateSession(id: string, data: SessionUpdate): Session | null {
     const db = this.getDb()
     const existing = this.getSession(id)

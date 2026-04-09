@@ -117,6 +117,9 @@ export interface AppSettings {
   // Advanced
   environmentVariables: Array<{ key: string; value: string }>
 
+  // Diagnostics
+  perfDiagnosticsEnabled: boolean
+
   // Migration flags
   _boardModeMigratedToStickyTab?: boolean
 }
@@ -173,6 +176,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   telemetryEnabled: true,
   tipsEnabled: true,
   environmentVariables: [],
+  perfDiagnosticsEnabled: false,
   _boardModeMigratedToStickyTab: false
 }
 
@@ -557,6 +561,7 @@ export const useSettingsStore = create<SettingsState>()(
         telemetryEnabled: state.telemetryEnabled,
         tipsEnabled: state.tipsEnabled,
         environmentVariables: state.environmentVariables,
+        perfDiagnosticsEnabled: state.perfDiagnosticsEnabled,
         _boardModeMigratedToStickyTab: state._boardModeMigratedToStickyTab
       })
     }

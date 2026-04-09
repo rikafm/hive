@@ -229,6 +229,10 @@ class PtyService {
    * Destroy all PTYs whose IDs are NOT in the given set of valid IDs.
    * Useful for cleaning up terminals when worktrees are deleted.
    */
+  getCount(): number {
+    return this.ptys.size
+  }
+
   destroyExcept(validIds: Set<string>): void {
     for (const [id] of this.ptys) {
       if (!validIds.has(id)) {

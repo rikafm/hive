@@ -14,9 +14,12 @@ import {
   cleanupOpenCode,
   registerFileTreeHandlers,
   cleanupFileTreeWatchers,
+  getFileTreeWatcherCount,
   registerGitFileHandlers,
   cleanupWorktreeWatchers,
   cleanupBranchWatchers,
+  getWorktreeWatcherCount,
+  getBranchWatcherCount,
   registerSettingsHandlers,
   registerFileHandlers,
   registerScriptHandlers,
@@ -42,8 +45,12 @@ import { resolveClaudeBinaryPath } from './services/claude-binary-resolver'
 import { setClaudeBinaryPath as setRouterClaudeBinaryPath } from './services/text-generation-router'
 import type { AgentSdkImplementer } from './services/agent-sdk-types'
 import { telemetryService } from './services/telemetry-service'
+import { perfDiagnostics } from './services/perf-diagnostics'
+import { ptyService } from './services/pty-service'
+import { scriptRunner } from './services/script-runner'
 import { registerTicketImportHandlers } from './ipc/ticket-import-handlers'
 import { initTicketProviderManager, GitHubProvider, JiraProvider } from './services/ticket-providers'
+import { APP_SETTINGS_DB_KEY } from '../shared/types/settings'
 
 const log = createLogger({ component: 'Main' })
 
@@ -569,6 +576,19 @@ app.whenReady().then(async () => {
     return telemetryService.isEnabled()
   })
 
+  // Performance diagnostics IPC
+  ipcMain.handle('perf-diagnostics:enable', (_event, enabled: boolean) => {
+    if (enabled) {
+      perfDiagnostics.start()
+    } else {
+      perfDiagnostics.stop()
+    }
+  })
+
+  ipcMain.handle('perf-diagnostics:snapshot', () => {
+    return perfDiagnostics.getSnapshot()
+  })
+
   // Register response logging handlers only when --log is active
   if (isLogMode) {
     log.info('Registering response logging handlers')
@@ -654,6 +674,36 @@ app.whenReady().then(async () => {
     registerUpdaterHandlers()
     updaterService.init(mainWindow)
 
+    // Wire up performance diagnostics collectors and auto-start if enabled
+    perfDiagnostics.setCollectors({
+      getPtyCount: () => ptyService.getCount(),
+      getScriptStats: () => scriptRunner.getStats(),
+      getFileWatcherCount: () => getFileTreeWatcherCount(),
+      getWorktreeWatcherCount: () => getWorktreeWatcherCount(),
+      getBranchWatcherCount: () => getBranchWatcherCount(),
+      getActiveSessionCount: () => {
+        try {
+          return getDatabase().countActiveSessions()
+        } catch {
+          return -1
+        }
+      }
+    })
+
+    // Auto-start perf diagnostics if setting is enabled
+    try {
+      const raw = getDatabase().getSetting(APP_SETTINGS_DB_KEY)
+      if (raw) {
+        const settings = JSON.parse(raw) as { perfDiagnosticsEnabled?: boolean }
+        if (settings.perfDiagnosticsEnabled) {
+          log.info('Auto-starting performance diagnostics (setting enabled)')
+          perfDiagnostics.start()
+        }
+      }
+    } catch {
+      // ignore — setting may not exist yet
+    }
+
     // Track app launch telemetry
     telemetryService.track('app_launched')
     telemetryService.identify({
@@ -683,6 +733,8 @@ app.on('window-all-closed', () => {
 app.on('will-quit', async () => {
   // Prevent further menu mutations — must be first to avoid native WeakPtr errors
   shutdownMenu()
+  // Cleanup performance diagnostics
+  perfDiagnostics.cleanup()
   // Cleanup updater timers
   updaterService.cleanup()
   // Cleanup terminal PTYs

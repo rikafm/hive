@@ -124,6 +124,10 @@ export async function unwatchBranch(worktreePath: string): Promise<void> {
   watchers.delete(worktreePath)
 }
 
+export function getBranchWatcherCount(): number {
+  return watchers.size
+}
+
 export async function cleanupBranchWatchers(): Promise<void> {
   log.info('Cleaning up all branch watchers', { count: watchers.size })
   const paths = Array.from(watchers.keys())

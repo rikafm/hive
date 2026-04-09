@@ -1379,6 +1379,20 @@ declare global {
       setEnabled: (enabled: boolean) => Promise<void>
       isEnabled: () => Promise<boolean>
     }
+    perfDiagnosticsOps: {
+      enable: (enabled: boolean) => Promise<void>
+      getSnapshot: () => Promise<{
+        timestamp: string
+        uptimeMs: number
+        cpu: { userMs: number; systemMs: number; percentSinceLastSample: number }
+        memory: { rss: number; heapUsed: number; heapTotal: number; external: number; arrayBuffers: number }
+        processes: { ptyActive: number; scriptsActive: number; scriptsTotalOpened: number; scriptsTotalClosed: number }
+        watchers: { fileTree: number; worktree: number; branch: number }
+        sessions: { active: number }
+        handles: { active: number; requests: number }
+        eventLoopLagMs: number
+      }>
+    }
     kanban: {
       ticket: {
         create: (data: KanbanTicketCreate) => Promise<KanbanTicket>

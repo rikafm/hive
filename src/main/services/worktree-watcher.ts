@@ -298,6 +298,10 @@ export async function unwatchWorktree(worktreePath: string): Promise<void> {
   log.info('Worktree watcher stopped', { worktreePath })
 }
 
+export function getWorktreeWatcherCount(): number {
+  return watchers.size
+}
+
 export async function cleanupWorktreeWatchers(): Promise<void> {
   log.info('Cleaning up all worktree watchers', { count: watchers.size })
   const paths = Array.from(watchers.keys())

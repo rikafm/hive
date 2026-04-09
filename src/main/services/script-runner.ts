@@ -43,6 +43,8 @@ export class ScriptRunner {
   private runningProcesses: Map<string, ChildProcess> = new Map()
   private outputBuffers: Map<string, string> = new Map()
   private outputFlushTimers: Map<string, NodeJS.Timeout> = new Map()
+  private totalOpened = 0
+  private totalClosed = 0
 
   private static readonly OUTPUT_FLUSH_MS = 16
 
@@ -241,6 +243,7 @@ export class ScriptRunner {
 
       // Track process for cleanup
       this.runningProcesses.set(eventKey, proc)
+      this.totalOpened++
 
       // Add 5-second notification timer for long-running commands
       const notificationTimer = setTimeout(() => {
@@ -276,6 +279,7 @@ export class ScriptRunner {
         log.error('Process spawn error', err, { command })
         this.flushOutputBuffer(eventKey)
         this.clearCurrentProcess(eventKey, proc)
+        this.totalClosed++
         resolve({ exitCode: 1 })
       })
 
@@ -286,6 +290,7 @@ export class ScriptRunner {
         }
         this.flushOutputBuffer(eventKey)
         this.clearCurrentProcess(eventKey, proc)
+        this.totalClosed++
         resolve({ exitCode: code ?? 1 })
       })
     })
@@ -319,6 +324,7 @@ export class ScriptRunner {
     }
 
     this.runningProcesses.set(eventKey, proc)
+    this.totalOpened++
 
     proc.stdout?.on('data', (chunk: Buffer) => {
       this.queueOutput(eventKey, chunk.toString())
@@ -334,6 +340,7 @@ export class ScriptRunner {
       this.flushOutputBuffer(eventKey)
       this.sendEvent(eventKey, { type: 'error', exitCode: 1 })
       this.clearCurrentProcess(eventKey, proc)
+      this.totalClosed++
     })
 
     proc.on('close', (code) => {
@@ -346,6 +353,7 @@ export class ScriptRunner {
         this.sendEvent(eventKey, { type: 'error', exitCode: code ?? 1 })
       }
       this.clearCurrentProcess(eventKey, proc)
+      this.totalClosed++
     })
 
     const kill = async (): Promise<void> => {
@@ -394,6 +402,7 @@ export class ScriptRunner {
         env: getColorEnv(),
         stdio: ['pipe', 'pipe', 'pipe']  // Fixed: Allow piped commands to work
       })
+      this.totalOpened++
 
       // Immediately close stdin to prevent hanging on commands that wait for input
       if (proc.stdin) {
@@ -446,6 +455,7 @@ export class ScriptRunner {
           settled = true
           clearTimeout(timer)
           clearTimeout(notificationTimer)
+          this.totalClosed++
           resolve({ success: false, output, error: err.message })
         }
       })
@@ -455,6 +465,7 @@ export class ScriptRunner {
           settled = true
           clearTimeout(timer)
           clearTimeout(notificationTimer)
+          this.totalClosed++
           if (code === 0) {
             resolve({ success: true, output })
           } else {
@@ -502,6 +513,14 @@ export class ScriptRunner {
     }
 
     return true
+  }
+
+  getStats(): { active: number; totalOpened: number; totalClosed: number } {
+    return {
+      active: this.runningProcesses.size,
+      totalOpened: this.totalOpened,
+      totalClosed: this.totalClosed
+    }
   }
 
   killAll(): void {

@@ -21,8 +21,15 @@ export function SettingsAdvanced(): React.JSX.Element {
   const [errors, setErrors] = useState<Record<number, string | null>>({})
 
   // Store access
-  const { environmentVariables: rawEnvVars, updateSetting } = useSettingsStore()
+  const { environmentVariables: rawEnvVars, perfDiagnosticsEnabled, updateSetting } = useSettingsStore()
   const envVars = rawEnvVars ?? []
+
+  const handlePerfDiagnosticsToggle = (): void => {
+    const newValue = !perfDiagnosticsEnabled
+    updateSetting('perfDiagnosticsEnabled', newValue)
+    window.perfDiagnosticsOps.enable(newValue)
+    toast.success(newValue ? 'Performance diagnostics enabled' : 'Performance diagnostics disabled')
+  }
 
   const handleAdd = () => {
     updateSetting('environmentVariables', [...envVars, { key: '', value: '' }])
@@ -67,6 +74,32 @@ export function SettingsAdvanced(): React.JSX.Element {
       <div>
         <h3 className="text-base font-medium mb-1">Advanced</h3>
         <p className="text-sm text-muted-foreground">Advanced configuration options</p>
+      </div>
+
+      {/* Performance Diagnostics toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="text-sm font-medium">Performance Diagnostics</label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Log CPU, memory, process, and handle metrics every 30s to ~/.hive/logs/perf-diagnostics.jsonl
+          </p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={perfDiagnosticsEnabled}
+          onClick={handlePerfDiagnosticsToggle}
+          className={cn(
+            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
+            perfDiagnosticsEnabled ? 'bg-primary' : 'bg-muted'
+          )}
+        >
+          <span
+            className={cn(
+              'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform',
+              perfDiagnosticsEnabled ? 'translate-x-4' : 'translate-x-0'
+            )}
+          />
+        </button>
       </div>
 
       {/* Environment Variables section */}
