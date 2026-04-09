@@ -1115,6 +1115,29 @@ const gitOps = {
     error?: string
   }> => ipcRenderer.invoke('git:branchDiffFiles', worktreePath, branch),
 
+  // Get file content at the merge-base between a branch and HEAD
+  getBranchBaseContent: (
+    worktreePath: string,
+    branch: string,
+    filePath: string
+  ): Promise<{
+    success: boolean
+    content?: string
+    error?: string
+  }> => ipcRenderer.invoke('git:branchBaseContent', worktreePath, branch, filePath),
+
+  // Get file content as base64 at the merge-base between a branch and HEAD (for binary files)
+  getBranchBaseContentBase64: (
+    worktreePath: string,
+    branch: string,
+    filePath: string
+  ): Promise<{
+    success: boolean
+    data?: string
+    mimeType?: string
+    error?: string
+  }> => ipcRenderer.invoke('git:branchBaseContentBase64', worktreePath, branch, filePath),
+
   // Get unified diff between current worktree and a branch for a specific file
   getBranchFileDiff: (
     worktreePath: string,

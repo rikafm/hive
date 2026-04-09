@@ -56,6 +56,8 @@ type Query {
   gitRemoteUrl(worktreePath: String!, remote: String): GitRemoteUrlResult!
   gitListPRs(projectPath: String!): GitPRListResult!
   gitBranchDiffFiles(worktreePath: String!, baseBranch: String!): GitBranchDiffFilesResult!
+  gitBranchBaseContent(worktreePath: String!, branch: String!, filePath: String!): GitRefContentResult!
+  gitBranchBaseContentBase64(worktreePath: String!, branch: String!, filePath: String!): GitFileContentBase64Result!
   gitBranchFileDiff(worktreePath: String!, baseBranch: String!, filePath: String!): GitBranchFileDiffResult!
   gitFileContentBase64(worktreePath: String!, filePath: String!): GitFileContentBase64Result!
   gitRefContentBase64(worktreePath: String!, ref: String!, filePath: String!): GitFileContentBase64Result!

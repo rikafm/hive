@@ -1017,6 +1017,25 @@ export class GitService {
     }
   }
 
+  /**
+   * Get the merge-base (common ancestor) between a branch and HEAD.
+   * Returns the commit hash, or null if it cannot be determined.
+   */
+  private async getMergeBase(branch: string): Promise<string | null> {
+    if (!branch || branch.startsWith('-')) return null
+    try {
+      const result = await this.git.raw(['merge-base', branch, 'HEAD'])
+      return result.trim() || null
+    } catch (error) {
+      log.warn('getMergeBase: failed to compute merge-base', {
+        branch,
+        repoPath: this.repoPath,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return null
+    }
+  }
+
   async getBranchDiffShortStat(baseBranch: string): Promise<{
     success: boolean
     filesChanged: number
@@ -1151,6 +1170,58 @@ export class GitService {
       )
       return { success: false, error: message }
     }
+  }
+
+  /**
+   * Get file content at the merge-base between a branch and HEAD.
+   * Used for branch comparison diffs so only changes from commits ahead
+   * of the target branch are shown (not changes introduced on the target
+   * after the branches diverged).
+   *
+   * Falls back to the branch tip content if merge-base cannot be determined.
+   */
+  async getBranchBaseContent(
+    branch: string,
+    filePath: string
+  ): Promise<{ success: boolean; content?: string; error?: string }> {
+    if (!branch || branch.startsWith('-')) {
+      return { success: false, error: 'Invalid branch name' }
+    }
+    const mergeBase = await this.getMergeBase(branch)
+    const ref = mergeBase ?? branch
+    if (!mergeBase) {
+      log.warn('getBranchBaseContent: merge-base not found, falling back to branch tip', {
+        branch,
+        filePath,
+        repoPath: this.repoPath
+      })
+    }
+    return this.getRefContent(ref, filePath)
+  }
+
+  /**
+   * Get file content as base64 at the merge-base between a branch and HEAD.
+   * Binary-safe variant of getBranchBaseContent for images and other binary files.
+   *
+   * Falls back to the branch tip content if merge-base cannot be determined.
+   */
+  async getBranchBaseContentBase64(
+    branch: string,
+    filePath: string
+  ): Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }> {
+    if (!branch || branch.startsWith('-')) {
+      return { success: false, error: 'Invalid branch name' }
+    }
+    const mergeBase = await this.getMergeBase(branch)
+    const ref = mergeBase ?? branch
+    if (!mergeBase) {
+      log.warn('getBranchBaseContentBase64: merge-base not found, falling back to branch tip', {
+        branch,
+        filePath,
+        repoPath: this.repoPath
+      })
+    }
+    return this.getRefContentBase64(ref, filePath)
   }
 
   /**
@@ -1760,9 +1831,21 @@ export class GitService {
       return { success: false, error: 'Invalid branch name' }
     }
     try {
+      // Use merge-base to only show changes from commits ahead of the target branch,
+      // rather than diffing against the branch tip (which would include the target's
+      // newer commits as apparent "reversions").
+      const mergeBase = await this.getMergeBase(branch)
+      const diffRef = mergeBase ?? branch
+      if (!mergeBase) {
+        log.warn('getBranchDiffFiles: merge-base not found, falling back to direct branch diff', {
+          branch,
+          repoPath: this.repoPath
+        })
+      }
+
       const [nameStatusResult, numstatResult] = await Promise.all([
-        this.git.raw(['diff', '--name-status', '--no-renames', branch]),
-        this.git.raw(['diff', '--numstat', '--no-renames', branch])
+        this.git.raw(['diff', '--name-status', '--no-renames', diffRef]),
+        this.git.raw(['diff', '--numstat', '--no-renames', diffRef])
       ])
       const files = new Map<string, {
         relativePath: string
@@ -1834,7 +1917,19 @@ export class GitService {
       return { success: false, error: 'Invalid branch name' }
     }
     try {
-      const result = await this.git.raw(['diff', branch, '--', filePath])
+      // Use merge-base so the diff only reflects commits ahead of the target branch,
+      // not changes introduced on the target after the branches diverged.
+      const mergeBase = await this.getMergeBase(branch)
+      const diffRef = mergeBase ?? branch
+      if (!mergeBase) {
+        log.warn('getBranchFileDiff: merge-base not found, falling back to direct branch diff', {
+          branch,
+          filePath,
+          repoPath: this.repoPath
+        })
+      }
+
+      const result = await this.git.raw(['diff', diffRef, '--', filePath])
       return { success: true, diff: result || '' }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -1909,13 +2004,13 @@ export class GitService {
           log.warn('getRangeDiff: git command failed', { error: err instanceof Error ? err.message : String(err) })
           return ''
         }),
-      execFileAsync('git', ['diff', '--stat', `${baseBranch}..HEAD`], { cwd: this.repoPath })
+      execFileAsync('git', ['diff', '--stat', `${baseBranch}...HEAD`], { cwd: this.repoPath })
         .then((r) => r.stdout)
         .catch((err) => {
           log.warn('getRangeDiff: git command failed', { error: err instanceof Error ? err.message : String(err) })
           return ''
         }),
-      execFileAsync('git', ['diff', '--patch', '--minimal', `${baseBranch}..HEAD`], {
+      execFileAsync('git', ['diff', '--patch', '--minimal', `${baseBranch}...HEAD`], {
         cwd: this.repoPath,
         maxBuffer: MAX_PATCH * 2
       })

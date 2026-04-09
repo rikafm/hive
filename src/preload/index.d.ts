@@ -1271,6 +1271,27 @@ declare global {
         }>
         error?: string
       }>
+      // Get file content at the merge-base between a branch and HEAD
+      getBranchBaseContent: (
+        worktreePath: string,
+        branch: string,
+        filePath: string
+      ) => Promise<{
+        success: boolean
+        content?: string
+        error?: string
+      }>
+      // Get file content as base64 at the merge-base between a branch and HEAD (for binary files)
+      getBranchBaseContentBase64: (
+        worktreePath: string,
+        branch: string,
+        filePath: string
+      ) => Promise<{
+        success: boolean
+        data?: string
+        mimeType?: string
+        error?: string
+      }>
       // Get unified diff between current worktree and a branch for a specific file
       getBranchFileDiff: (
         worktreePath: string,

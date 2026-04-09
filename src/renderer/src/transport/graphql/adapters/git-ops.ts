@@ -633,6 +633,53 @@ export function createGitOpsAdapter(): GitOpsApi {
       }
     },
 
+    async getBranchBaseContent(
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; content?: string; error?: string }> {
+      const data = await graphqlQuery<{
+        gitBranchBaseContent: { success: boolean; content?: string; error?: string }
+      }>(
+        `query ($worktreePath: String!, $branch: String!, $filePath: String!) {
+          gitBranchBaseContent(worktreePath: $worktreePath, branch: $branch, filePath: $filePath) {
+            success content error
+          }
+        }`,
+        { worktreePath, branch, filePath }
+      )
+      return data.gitBranchBaseContent
+    },
+
+    async getBranchBaseContentBase64(
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }> {
+      const data = await graphqlQuery<{
+        gitBranchBaseContentBase64: {
+          success: boolean
+          content?: string
+          mimeType?: string
+          error?: string
+        }
+      }>(
+        `query ($worktreePath: String!, $branch: String!, $filePath: String!) {
+          gitBranchBaseContentBase64(worktreePath: $worktreePath, branch: $branch, filePath: $filePath) {
+            success content mimeType error
+          }
+        }`,
+        { worktreePath, branch, filePath }
+      )
+      const r = data.gitBranchBaseContentBase64
+      return {
+        success: r.success,
+        data: r.content ?? undefined,
+        mimeType: r.mimeType ?? undefined,
+        error: r.error ?? undefined
+      }
+    },
+
     async getBranchFileDiff(
       worktreePath: string,
       branch: string,

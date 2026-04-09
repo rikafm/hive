@@ -75,10 +75,12 @@ export function ImageDiffView({
       }
 
       if (compareBranch) {
-        // Branch diff: original = branch ref, modified = working tree
+        // Branch diff: original = merge-base content, modified = working tree.
+        // Uses merge-base so only changes from commits ahead of the target branch
+        // are shown (not changes introduced on the target after divergence).
         if (isSvg) {
           const [origResult, modResult] = await Promise.all([
-            window.gitOps.getRefContent(worktreePath, compareBranch, filePath),
+            window.gitOps.getBranchBaseContent(worktreePath, compareBranch, filePath),
             window.gitOps.getFileContent(worktreePath, filePath)
           ])
           setOriginalUri(
@@ -89,7 +91,7 @@ export function ImageDiffView({
           )
         } else {
           const [origResult, modResult] = await Promise.all([
-            window.gitOps.getRefContentBase64(worktreePath, compareBranch, filePath),
+            window.gitOps.getBranchBaseContentBase64(worktreePath, compareBranch, filePath),
             window.gitOps.getFileContentBase64(worktreePath, filePath)
           ])
           setOriginalUri(

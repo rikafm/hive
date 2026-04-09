@@ -890,6 +890,54 @@ export function registerGitFileHandlers(window: BrowserWindow): void {
     }
   )
 
+  // Get file content at the merge-base between a branch and HEAD
+  ipcMain.handle(
+    'git:branchBaseContent',
+    async (
+      _event,
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; content?: string; error?: string }> => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.getBranchBaseContent(branch, filePath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        log.error(
+          'Failed to get branch base content',
+          error instanceof Error ? error : new Error(message),
+          { worktreePath, branch, filePath }
+        )
+        return { success: false, error: message }
+      }
+    }
+  )
+
+  // Get file content as base64 at the merge-base between a branch and HEAD (for binary files)
+  ipcMain.handle(
+    'git:branchBaseContentBase64',
+    async (
+      _event,
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }> => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.getBranchBaseContentBase64(branch, filePath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        log.error(
+          'Failed to get branch base content base64',
+          error instanceof Error ? error : new Error(message),
+          { worktreePath, branch, filePath }
+        )
+        return { success: false, error: message }
+      }
+    }
+  )
+
   // Get unified diff between current worktree and a branch for a specific file
   ipcMain.handle(
     'git:branchFileDiff',

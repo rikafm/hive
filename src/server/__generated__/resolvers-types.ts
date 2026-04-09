@@ -1546,6 +1546,8 @@ export type Query = {
   fileTreeLoadChildren: FileTreeChildrenResult;
   fileTreeScan: FileTreeScanResult;
   fileTreeScanFlat: FileTreeScanFlatResult;
+  gitBranchBaseContent: GitRefContentResult;
+  gitBranchBaseContentBase64: GitFileContentBase64Result;
   gitBranchDiffFiles: GitBranchDiffFilesResult;
   gitBranchExists: Scalars['Boolean']['output'];
   gitBranchFileDiff: GitBranchFileDiffResult;
@@ -1666,6 +1668,20 @@ export type QueryFileTreeScanArgs = {
 
 export type QueryFileTreeScanFlatArgs = {
   dirPath: Scalars['String']['input'];
+};
+
+
+export type QueryGitBranchBaseContentArgs = {
+  branch: Scalars['String']['input'];
+  filePath: Scalars['String']['input'];
+  worktreePath: Scalars['String']['input'];
+};
+
+
+export type QueryGitBranchBaseContentBase64Args = {
+  branch: Scalars['String']['input'];
+  filePath: Scalars['String']['input'];
+  worktreePath: Scalars['String']['input'];
 };
 
 
@@ -3365,6 +3381,8 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   fileTreeLoadChildren?: Resolver<ResolversTypes['FileTreeChildrenResult'], ParentType, ContextType, RequireFields<QueryFileTreeLoadChildrenArgs, 'dirPath' | 'rootPath'>>;
   fileTreeScan?: Resolver<ResolversTypes['FileTreeScanResult'], ParentType, ContextType, RequireFields<QueryFileTreeScanArgs, 'dirPath'>>;
   fileTreeScanFlat?: Resolver<ResolversTypes['FileTreeScanFlatResult'], ParentType, ContextType, RequireFields<QueryFileTreeScanFlatArgs, 'dirPath'>>;
+  gitBranchBaseContent?: Resolver<ResolversTypes['GitRefContentResult'], ParentType, ContextType, RequireFields<QueryGitBranchBaseContentArgs, 'branch' | 'filePath' | 'worktreePath'>>;
+  gitBranchBaseContentBase64?: Resolver<ResolversTypes['GitFileContentBase64Result'], ParentType, ContextType, RequireFields<QueryGitBranchBaseContentBase64Args, 'branch' | 'filePath' | 'worktreePath'>>;
   gitBranchDiffFiles?: Resolver<ResolversTypes['GitBranchDiffFilesResult'], ParentType, ContextType, RequireFields<QueryGitBranchDiffFilesArgs, 'baseBranch' | 'worktreePath'>>;
   gitBranchExists?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryGitBranchExistsArgs, 'branchName' | 'projectPath'>>;
   gitBranchFileDiff?: Resolver<ResolversTypes['GitBranchFileDiffResult'], ParentType, ContextType, RequireFields<QueryGitBranchFileDiffArgs, 'baseBranch' | 'filePath' | 'worktreePath'>>;
@@ -3740,3 +3758,4 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   WorktreeBranchRenamedEvent?: WorktreeBranchRenamedEventResolvers<ContextType>;
   WorktreeCreateResult?: WorktreeCreateResultResolvers<ContextType>;
 }>;
+
