@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none">
+  <!-- Dragon Frame: ornamental border for legendary tier kanban tickets -->
+
+  <!-- Outer border rectangle with rounded corners -->
+  <rect x="8" y="8" width="384" height="284" rx="12" ry="12"
+        stroke="currentColor" stroke-width="2" fill="none" />
+
+  <!-- Inner border rectangle -->
+  <rect x="16" y="16" width="368" height="268" rx="8" ry="8"
+        stroke="currentColor" stroke-width="1" fill="none" opacity="0.4" />
+
+  <!-- ═══ TOP-LEFT CORNER: Dragon head facing right ═══ -->
+  <g transform="translate(4, 4)">
+    <!-- Dragon head -->
+    <path d="M32 8 C28 4, 20 2, 14 6 C10 9, 8 14, 10 18 L14 16 C12 14, 13 11, 16 9 C19 7, 24 7, 28 10 Z"
+          fill="currentColor" opacity="0.9" />
+    <!-- Dragon eye -->
+    <circle cx="20" cy="11" r="1.5" fill="currentColor" />
+    <!-- Dragon jaw / snout -->
+    <path d="M32 8 L40 6 L38 10 L32 12 Z" fill="currentColor" opacity="0.8" />
+    <!-- Dragon horn -->
+    <path d="M16 9 C14 4, 10 0, 6 0 C10 2, 12 5, 14 8" stroke="currentColor" stroke-width="1.5" fill="none" />
+    <!-- Dragon neck flowing into top border -->
+    <path d="M28 10 C34 14, 38 14, 48 12 C58 10, 68 10, 80 10"
+          stroke="currentColor" stroke-width="2" fill="none" />
+    <!-- Decorative spines along neck -->
+    <path d="M36 12 L34 6 M42 11 L41 7 M48 11 L48 7"
+          stroke="currentColor" stroke-width="1" opacity="0.6" />
+    <!-- Wing flourish -->
+    <path d="M18 18 C14 22, 10 28, 10 36 C12 30, 16 24, 22 20 Z"
+          fill="currentColor" opacity="0.3" />
+  </g>
+
+  <!-- ═══ TOP-RIGHT CORNER: Dragon head facing left (mirrored) ═══ -->
+  <g transform="translate(396, 4) scale(-1, 1)">
+    <!-- Dragon head -->
+    <path d="M32 8 C28 4, 20 2, 14 6 C10 9, 8 14, 10 18 L14 16 C12 14, 13 11, 16 9 C19 7, 24 7, 28 10 Z"
+          fill="currentColor" opacity="0.9" />
+    <!-- Dragon eye -->
+    <circle cx="20" cy="11" r="1.5" fill="currentColor" />
+    <!-- Dragon jaw / snout -->
+    <path d="M32 8 L40 6 L38 10 L32 12 Z" fill="currentColor" opacity="0.8" />
+    <!-- Dragon horn -->
+    <path d="M16 9 C14 4, 10 0, 6 0 C10 2, 12 5, 14 8" stroke="currentColor" stroke-width="1.5" fill="none" />
+    <!-- Dragon neck flowing into top border -->
+    <path d="M28 10 C34 14, 38 14, 48 12 C58 10, 68 10, 80 10"
+          stroke="currentColor" stroke-width="2" fill="none" />
+    <!-- Decorative spines along neck -->
+    <path d="M36 12 L34 6 M42 11 L41 7 M48 11 L48 7"
+          stroke="currentColor" stroke-width="1" opacity="0.6" />
+    <!-- Wing flourish -->
+    <path d="M18 18 C14 22, 10 28, 10 36 C12 30, 16 24, 22 20 Z"
+          fill="currentColor" opacity="0.3" />
+  </g>
+
+  <!-- ═══ BOTTOM-LEFT CORNER: Dragon tail curl ═══ -->
+  <g transform="translate(4, 296) scale(1, -1)">
+    <!-- Tail base -->
+    <path d="M10 18 C10 14, 12 10, 18 8 C24 6, 32 8, 36 12"
+          fill="currentColor" opacity="0.7" />
+    <!-- Tail curl -->
+    <path d="M36 12 C40 16, 38 22, 32 24 C26 26, 20 22, 22 16"
+          stroke="currentColor" stroke-width="2" fill="none" />
+    <!-- Tail spade tip -->
+    <path d="M22 16 L18 20 L22 24 L26 18 Z" fill="currentColor" opacity="0.6" />
+    <!-- Tail flowing into bottom border -->
+    <path d="M36 12 C46 10, 56 10, 70 10 C80 10, 86 10, 90 10"
+          stroke="currentColor" stroke-width="2" fill="none" />
+    <!-- Scale details -->
+    <path d="M28 10 L26 6 M32 9 L31 5"
+          stroke="currentColor" stroke-width="1" opacity="0.5" />
+  </g>
+
+  <!-- ═══ BOTTOM-RIGHT CORNER: Dragon tail curl (mirrored) ═══ -->
+  <g transform="translate(396, 296) scale(-1, -1)">
+    <!-- Tail base -->
+    <path d="M10 18 C10 14, 12 10, 18 8 C24 6, 32 8, 36 12"
+          fill="currentColor" opacity="0.7" />
+    <!-- Tail curl -->
+    <path d="M36 12 C40 16, 38 22, 32 24 C26 26, 20 22, 22 16"
+          stroke="currentColor" stroke-width="2" fill="none" />
+    <!-- Tail spade tip -->
+    <path d="M22 16 L18 20 L22 24 L26 18 Z" fill="currentColor" opacity="0.6" />
+    <!-- Tail flowing into bottom border -->
+    <path d="M36 12 C46 10, 56 10, 70 10 C80 10, 86 10, 90 10"
+          stroke="currentColor" stroke-width="2" fill="none" />
+    <!-- Scale details -->
+    <path d="M28 10 L26 6 M32 9 L31 5"
+          stroke="currentColor" stroke-width="1" opacity="0.5" />
+  </g>
+
+  <!-- ═══ TOP BORDER: Celtic knotwork with dragon scale pattern ═══ -->
+  <g opacity="0.5">
+    <!-- Main top decorative line -->
+    <path d="M84 10 C120 6, 140 14, 160 10 C180 6, 200 14, 220 10 C240 6, 260 14, 280 10 C300 6, 316 14, 316 10"
+          stroke="currentColor" stroke-width="1.5" fill="none" />
+    <!-- Interlacing knot segments -->
+    <path d="M100 10 C104 4, 112 4, 116 10 C120 16, 128 16, 132 10"
+          stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M180 10 C184 4, 192 4, 196 10 C200 16, 208 16, 212 10"
+          stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M260 10 C264 4, 272 4, 276 10 C280 16, 288 16, 292 10"
+          stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <!-- Center top jewel/medallion -->
+    <circle cx="200" cy="8" r="5" stroke="currentColor" stroke-width="1.5" fill="none" />
+    <circle cx="200" cy="8" r="2" fill="currentColor" opacity="0.5" />
+  </g>
+
+  <!-- ═══ BOTTOM BORDER: Matching Celtic knotwork ═══ -->
+  <g opacity="0.5">
+    <path d="M84 290 C120 294, 140 286, 160 290 C180 294, 200 286, 220 290 C240 294, 260 286, 280 290 C300 294, 316 286, 316 290"
+          stroke="currentColor" stroke-width="1.5" fill="none" />
+    <path d="M100 290 C104 296, 112 296, 116 290 C120 284, 128 284, 132 290"
+          stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M180 290 C184 296, 192 296, 196 290 C200 284, 208 284, 212 290"
+          stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M260 290 C264 296, 272 296, 276 290 C280 284, 288 284, 292 290"
+          stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <circle cx="200" cy="292" r="5" stroke="currentColor" stroke-width="1.5" fill="none" />
+    <circle cx="200" cy="292" r="2" fill="currentColor" opacity="0.5" />
+  </g>
+
+  <!-- ═══ LEFT BORDER: Dragon body / scales ═══ -->
+  <g opacity="0.5">
+    <path d="M10 52 C6 70, 14 90, 10 110 C6 130, 14 150, 10 170 C6 190, 14 210, 10 230 C6 244, 10 248, 10 248"
+          stroke="currentColor" stroke-width="1.5" fill="none" />
+    <!-- Scale bumps -->
+    <path d="M10 70 C4 74, 4 82, 10 86" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M10 110 C4 114, 4 122, 10 126" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M10 150 C4 154, 4 162, 10 166" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M10 190 C4 194, 4 202, 10 206" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M10 230 C4 234, 4 242, 10 246" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+  </g>
+
+  <!-- ═══ RIGHT BORDER: Dragon body / scales (mirrored) ═══ -->
+  <g opacity="0.5">
+    <path d="M390 52 C394 70, 386 90, 390 110 C394 130, 386 150, 390 170 C394 190, 386 210, 390 230 C394 244, 390 248, 390 248"
+          stroke="currentColor" stroke-width="1.5" fill="none" />
+    <!-- Scale bumps -->
+    <path d="M390 70 C396 74, 396 82, 390 86" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M390 110 C396 114, 396 122, 390 126" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M390 150 C396 154, 396 162, 390 166" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M390 190 C396 194, 396 202, 390 206" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+    <path d="M390 230 C396 234, 396 242, 390 246" stroke="currentColor" stroke-width="1" fill="none" opacity="0.6" />
+  </g>
+
+  <!-- ═══ CORNER FLOURISHES: Small decorative filigree ═══ -->
+  <!-- Top-left inner flourish -->
+  <path d="M24 24 C28 20, 34 18, 40 20 M24 24 C20 28, 18 34, 20 40"
+        stroke="currentColor" stroke-width="1" fill="none" opacity="0.35" />
+  <!-- Top-right inner flourish -->
+  <path d="M376 24 C372 20, 366 18, 360 20 M376 24 C380 28, 382 34, 380 40"
+        stroke="currentColor" stroke-width="1" fill="none" opacity="0.35" />
+  <!-- Bottom-left inner flourish -->
+  <path d="M24 276 C28 280, 34 282, 40 280 M24 276 C20 272, 18 266, 20 260"
+        stroke="currentColor" stroke-width="1" fill="none" opacity="0.35" />
+  <!-- Bottom-right inner flourish -->
+  <path d="M376 276 C372 280, 366 282, 360 280 M376 276 C380 272, 382 266, 380 260"
+        stroke="currentColor" stroke-width="1" fill="none" opacity="0.35" />
+</svg>
