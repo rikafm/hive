@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="Latest Release" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="Downloads" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="Build Status" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -22,18 +24,32 @@
 
 ## 安装
 
-> 当前以 macOS 为主，Windows 和 Linux 支持仍在演进中。
+Hive 支持 macOS、Windows 和 Linux。
 
-### Homebrew
+### macOS
+
+#### Homebrew
 
 ```bash
 brew tap morapelker/hive
 brew install --cask hive
 ```
 
-### 直接下载
+#### 直接下载
 
 从 [GitHub Releases](https://github.com/morapelker/hive/releases/latest) 下载最新 `.dmg`。
+
+### Windows
+
+从 [GitHub Releases](https://github.com/morapelker/hive/releases/latest) 下载最新 `.exe`。
+
+### Linux
+
+从 [GitHub Releases](https://github.com/morapelker/hive/releases/latest) 下载最新 `.AppImage` 或 `.deb`。
+
+---
+
+安装完成！打开 Hive 并指向一个 git 仓库即可。
 
 ## Hive 是什么
 
@@ -198,7 +214,6 @@ src/
 
 - i18n / 本地化
 - UI/UX 细节打磨
-- Windows / Linux 支持
 - 测试与 CI 补强
 - 文档完善
 

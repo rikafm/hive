@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="Latest Release" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="Downloads" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="Build Status" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -44,20 +46,32 @@
 
 ## Installation
 
-> 🍎 **macOS only** — Windows and Linux support coming soon.
+Hive supports **macOS**, **Windows**, and **Linux**.
 
-### Via Homebrew (Recommended)
+### macOS
+
+#### Via Homebrew (Recommended)
 
 ```bash
 brew tap morapelker/hive
 brew install --cask hive
 ```
 
-### Direct Download
+#### Direct Download
 
 Download the latest `.dmg` from [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
 
-That's it! Open Hive from your Applications folder and point it at a git repo.
+### Windows
+
+Download the latest `.exe` installer from [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+### Linux
+
+Download the latest `.AppImage` or `.deb` from [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+---
+
+That's it! Open Hive and point it at a git repo.
 
 ## What is Hive?
 
@@ -223,7 +237,6 @@ Connect any two worktrees to:
 
 ### 🚀 Coming Soon
 
-- **Cross-platform support** — Windows and Linux builds
 - **Plugin system** — Extend Hive with custom integrations
 - **Cloud sync** — Sync settings, sessions, and connection templates across devices
 - **Team features** — Share worktrees and collaborate in real-time

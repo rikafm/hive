@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="Son Sürüm" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="İndirmeler" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="Build Durumu" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -37,20 +39,32 @@
 
 ## Kurulum
 
-> 🍎 **Yalnızca macOS** — Windows ve Linux desteği yakında.
+Hive macOS, Windows ve Linux'u destekler.
 
-### Homebrew ile (Önerilen)
+### macOS
+
+#### Homebrew ile (Önerilen)
 
 ```bash
 brew tap morapelker/hive
 brew install --cask hive
 ```
 
-### Doğrudan İndirme
+#### Doğrudan İndirme
 
 En son `.dmg` dosyasını [GitHub Releases](https://github.com/morapelker/hive/releases/latest) sayfasından indirin.
 
-Bu kadar! Uygulamalar klasöründen Hive'ı açın ve bir git deposuna yönlendirin.
+### Windows
+
+En son `.exe` dosyasını [GitHub Releases](https://github.com/morapelker/hive/releases/latest) sayfasından indirin.
+
+### Linux
+
+En son `.AppImage` veya `.deb` dosyasını [GitHub Releases](https://github.com/morapelker/hive/releases/latest) sayfasından indirin.
+
+---
+
+Bu kadar! Hive'ı açın ve bir git deposuna yönlendirin.
 
 ## Hive Nedir?
 
@@ -216,7 +230,6 @@ Herhangi iki worktree'yi bağlayarak:
 
 ### 🚀 Yakında
 
-- **Çapraz platform desteği** — Windows ve Linux derlemeleri
 - **Eklenti sistemi** — Hive'ı özel entegrasyonlarla genişletin
 - **Bulut senkronizasyonu** — Ayarları, oturumları ve bağlantı şablonlarını cihazlar arası senkronize edin
 - **Takım özellikleri** — Worktree'leri paylaşın ve gerçek zamanlı işbirliği yapın

@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="Latest Release" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="Downloads" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="Build Status" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -37,20 +39,32 @@
 
 ## Cài đặt
 
-> 🍎 **Chỉ macOS** — Hỗ trợ Windows và Linux sắp ra mắt.
+Hive hỗ trợ macOS, Windows và Linux.
 
-### Qua Homebrew (Khuyến nghị)
+### macOS
+
+#### Qua Homebrew (Khuyến nghị)
 
 ```bash
 brew tap morapelker/hive
 brew install --cask hive
 ```
 
-### Tải trực tiếp
+#### Tải trực tiếp
 
 Tải file `.dmg` mới nhất từ [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
 
-Vậy thôi! Mở Hive từ thư mục Applications và trỏ đến git repo.
+### Windows
+
+Tải file `.exe` mới nhất từ [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+### Linux
+
+Tải file `.AppImage` hoặc `.deb` mới nhất từ [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+---
+
+Vậy thôi! Mở Hive và trỏ đến git repo.
 
 ## Hive là gì?
 
@@ -216,7 +230,6 @@ Kết nối bất kỳ hai worktree nào để:
 
 ### 🚀 Sắp ra mắt
 
-- **Hỗ trợ đa nền tảng** — Build cho Windows và Linux
 - **Hệ thống plugin** — Mở rộng Hive với tích hợp tùy chỉnh
 - **Đồng bộ đám mây** — Đồng bộ cài đặt, phiên và mẫu kết nối giữa các thiết bị
 - **Tính năng nhóm** — Chia sẻ worktree và cộng tác thời gian thực

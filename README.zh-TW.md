@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="最新版本" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="下載次數" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="建置狀態" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -37,20 +39,32 @@
 
 ## 安裝
 
-> 🍎 **僅支援 macOS** — Windows 和 Linux 支援即將推出。
+Hive 支援 macOS、Windows 和 Linux。
 
-### 透過 Homebrew（推薦）
+### macOS
+
+#### 透過 Homebrew（推薦）
 
 ```bash
 brew tap morapelker/hive
 brew install --cask hive
 ```
 
-### 直接下載
+#### 直接下載
 
 從 [GitHub Releases](https://github.com/morapelker/hive/releases/latest) 下載最新的 `.dmg`。
 
-就是這樣！從「應用程式」資料夾開啟 Hive，指向一個 git 儲存庫即可。
+### Windows
+
+從 [GitHub Releases](https://github.com/morapelker/hive/releases/latest) 下載最新的 `.exe`。
+
+### Linux
+
+從 [GitHub Releases](https://github.com/morapelker/hive/releases/latest) 下載最新的 `.AppImage` 或 `.deb`。
+
+---
+
+就是這樣！開啟 Hive，指向一個 git 儲存庫即可。
 
 ## 什麼是 Hive？
 
@@ -216,7 +230,6 @@ Hive 的 **Worktree 連接**功能讓你將兩個 worktree 連結在一起，在
 
 ### 🚀 即將推出
 
-- **跨平台支援** — Windows 和 Linux 建置
 - **外掛系統** — 使用自訂整合擴展 Hive
 - **雲端同步** — 跨裝置同步設定、工作階段和連接範本
 - **團隊功能** — 共享 worktree 並即時協作
