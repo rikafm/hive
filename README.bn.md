@@ -46,8 +46,7 @@ Hive macOS, Windows এবং Linux সাপোর্ট করে।
 #### Homebrew দিয়ে (সুপারিশকৃত)
 
 ```bash
-brew tap morapelker/hive
-brew install --cask hive
+brew install --cask hive-app
 ```
 
 #### সরাসরি ডাউনলোড

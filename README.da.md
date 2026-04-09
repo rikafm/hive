@@ -46,8 +46,7 @@ Hive understøtter macOS, Windows og Linux.
 #### Via Homebrew (Anbefalet)
 
 ```bash
-brew tap morapelker/hive
-brew install --cask hive
+brew install --cask hive-app
 ```
 
 #### Direkte download

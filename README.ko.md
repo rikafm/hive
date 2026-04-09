@@ -53,8 +53,7 @@ Hive는 macOS, Windows, Linux를 지원합니다.
 #### Homebrew (권장)
 
 ```bash
-brew tap morapelker/hive
-brew install --cask hive
+brew install --cask hive-app
 ```
 
 #### 직접 다운로드

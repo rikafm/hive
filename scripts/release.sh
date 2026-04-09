@@ -221,8 +221,7 @@ echo "  2. Commit, tag v${NEW_VERSION}, and push to origin"
 echo "  3. Build macOS for arm64 + x64 (sign + notarize)"
 echo "  4. Build Windows x64 (NSIS installer + ZIP)"
 echo "  5. Publish all artifacts to GitHub Release v${NEW_VERSION}"
-echo "  6. Update Homebrew cask with new SHA256 checksums"
-echo "  7. Push Homebrew repo"
+echo "  6. Update Homebrew cask (custom tap + official homebrew-cask PR)"
 echo ""
 if ! $AUTO_YES; then
   read -rp "Proceed? [Y/n] " confirm
@@ -505,6 +504,14 @@ cd "$PROJECT_DIR"
 
 ok "Homebrew repo pushed"
 
+# ── Phase 5b: Update official Homebrew cask ──────────────────────
+info "Submitting PR to official Homebrew cask..."
+if bash "$SCRIPT_DIR/update-homebrew-cask.sh" "$NEW_VERSION" "$SHA_ARM" "$SHA_X64"; then
+  ok "Official Homebrew cask PR submitted"
+else
+  warn "Failed to submit official Homebrew cask PR (non-fatal)"
+fi
+
 # ── Phase 6: Summary ─────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
@@ -512,7 +519,7 @@ echo -e "${GREEN}  Release v${NEW_VERSION} complete!${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
 echo ""
 echo "  GitHub Release: https://github.com/${REPO}/releases/tag/v${NEW_VERSION}"
-echo "  Homebrew:       brew install --cask morapelker/hive/hive"
+echo "  Homebrew:       brew install --cask hive-app"
 echo ""
 echo "  Assets published:"
 echo "    macOS:"

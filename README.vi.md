@@ -46,8 +46,7 @@ Hive hỗ trợ macOS, Windows và Linux.
 #### Qua Homebrew (Khuyến nghị)
 
 ```bash
-brew tap morapelker/hive
-brew install --cask hive
+brew install --cask hive-app
 ```
 
 #### Tải trực tiếp

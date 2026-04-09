@@ -26,8 +26,7 @@ No! Hive handles all the worktree complexity for you. If you can use git branche
 ### How do I install Hive?
 The easiest way is via Homebrew:
 ```bash
-brew tap morapelker/hive
-brew install --cask hive
+brew install --cask hive-app
 ```
 
 Alternatively, download the `.dmg` file from [GitHub Releases](https://github.com/morapelker/hive/releases).
@@ -42,7 +41,7 @@ This is macOS's Gatekeeper protection. To fix:
 ### How do I update Hive?
 If installed via Homebrew:
 ```bash
-brew upgrade hive
+brew upgrade hive-app
 ```
 
 Otherwise, download the latest version from GitHub Releases.

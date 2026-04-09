@@ -46,7 +46,7 @@ info "Will finalize: ${GREEN}v${VERSION}${NC}"
 info "This will:"
 echo "  1. Un-draft the release and add auto-generated notes"
 echo "  2. Download macOS DMGs and compute SHA256 checksums"
-echo "  3. Update Homebrew cask (morapelker/homebrew-hive)"
+echo "  3. Update Homebrew cask (custom tap + official homebrew-cask PR)"
 echo ""
 read -rp "Proceed? [Y/n] " confirm
 [[ "$confirm" =~ ^[Nn]$ ]] && { info "Aborted."; exit 0; }
@@ -104,6 +104,14 @@ git commit -m "Update Hive to v${VERSION}"
 git push origin main
 ok "Homebrew repo pushed"
 
+# Update official Homebrew cask
+info "Submitting PR to official Homebrew cask..."
+if bash "$SCRIPT_DIR/update-homebrew-cask.sh" "$VERSION" "$SHA_ARM" "$SHA_X64"; then
+  ok "Official Homebrew cask PR submitted"
+else
+  warn "Failed to submit official Homebrew cask PR (non-fatal)"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
@@ -111,5 +119,5 @@ echo -e "${GREEN}  Release v${VERSION} finalized!${NC}"
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
 echo ""
 echo "  GitHub Release: https://github.com/${REPO}/releases/tag/v${VERSION}"
-echo "  Homebrew:       brew install --cask morapelker/hive/hive"
+echo "  Homebrew:       brew install --cask hive-app"
 echo ""

@@ -107,7 +107,7 @@ echo "  1. Bump package.json to ${NEW_VERSION}"
 echo "  2. Commit, tag v${NEW_VERSION}, and push to origin"
 echo "  3. Trigger GitHub Actions to build macOS, Windows, and Linux"
 echo "  4. Publish all artifacts to GitHub Release v${NEW_VERSION}"
-echo "  5. Update Homebrew cask (automated in CI)"
+echo "  5. Update Homebrew cask (official + custom tap, automated in CI)"
 echo ""
 if ! $AUTO_YES; then
  read -rp "Proceed? [Y/n] " confirm

@@ -224,6 +224,21 @@ jobs:
           git add Casks/hive.rb
           git commit -m "Update Hive to v${VERSION}"
           git push origin main
+      - name: Update official Homebrew cask
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_PAT }}
+        run: |
+          VERSION="${{ needs.start.outputs.version }}"
+
+          # Reuse DMGs from prior step if present, download any missing ones
+          [[ -f "Hive-${VERSION}-arm64.dmg" ]] || gh release download "v${VERSION}" -p "Hive-${VERSION}-arm64.dmg"
+          [[ -f "Hive-${VERSION}.dmg" ]]       || gh release download "v${VERSION}" -p "Hive-${VERSION}.dmg"
+
+          SHA_ARM=$(sha256sum "Hive-${VERSION}-arm64.dmg" | awk '{print $1}')
+          SHA_X64=$(sha256sum "Hive-${VERSION}.dmg" | awk '{print $1}')
+
+          bash scripts/update-homebrew-cask.sh "$VERSION" "$SHA_ARM" "$SHA_X64"
       - name: Telegram — release complete
         run: |
           curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
