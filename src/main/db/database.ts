@@ -36,6 +36,7 @@ import type {
   KanbanTicketCreate,
   KanbanTicketUpdate,
   KanbanTicketColumn,
+  TicketMark,
   TicketFollowupMessage,
   TicketFollowupMessageCreate
 } from './types'
@@ -146,6 +147,7 @@ export class DatabaseService {
       external_url: (row.external_url as string) ?? null,
       github_pr_number: (row.github_pr_number as number) ?? null,
       github_pr_url: (row.github_pr_url as string) ?? null,
+      mark: (row.mark as TicketMark) ?? null,
       total_tokens: (row.total_tokens as number) ?? 0
     }
   }
@@ -1816,6 +1818,10 @@ export class DatabaseService {
     if (data.github_pr_url !== undefined) {
       updates.push('github_pr_url = ?')
       values.push(data.github_pr_url)
+    }
+    if (data.mark !== undefined) {
+      updates.push('mark = ?')
+      values.push(data.mark)
     }
 
     if (updates.length === 1) return existing // Only updated_at, nothing meaningful changed
