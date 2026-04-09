@@ -1969,6 +1969,18 @@ export class GitService {
       return { success: true, url, number }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+
+      // If a PR already exists for this branch, extract its URL/number
+      // so the caller can attach it instead of treating this as a hard failure.
+      if (/already exists/i.test(message)) {
+        const urlMatch = message.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)
+        const prUrl = urlMatch?.[0]
+        const numMatch = prUrl?.match(/\/pull\/(\d+)/)
+        const prNumber = numMatch ? parseInt(numMatch[1], 10) : undefined
+        log.warn('PR already exists for this branch', { repoPath: this.repoPath, prUrl, prNumber })
+        return { success: false, error: message, url: prUrl, number: prNumber }
+      }
+
       log.error('Failed to create pull request', error instanceof Error ? error : new Error(message), {
         repoPath: this.repoPath
       })

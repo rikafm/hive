@@ -341,33 +341,43 @@ export function CreatePRModal({
       )
 
       if (!createResult.success) {
-        // Check for "already exists" pattern
-        const errMsg = createResult.error ?? 'PR creation failed'
-        const alreadyExistsMatch = errMsg.match(
-          /already exists.*?(\d+)|pull request.*?#(\d+).*?already/i
-        )
-        if (alreadyExistsMatch) {
-          const existingNumber = parseInt(alreadyExistsMatch[1] || alreadyExistsMatch[2], 10)
-          if (existingNumber) {
-            const urlMatch = errMsg.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)
-            const existingUrl =
-              urlMatch?.[0] ?? `https://github.com/unknown/pull/${existingNumber}`
+        // The backend populates url/number even on failure when a PR already
+        // exists — use that structured data first, regex fallback second.
+        let existingNumber = createResult.number
+        let existingUrl = createResult.url
 
-            // Auto-attach the existing PR
-            await attachPR(worktreeId, existingNumber, existingUrl)
-
-            update(notifId, {
-              status: 'info',
-              message: `PR #${existingNumber} already exists`,
-              description: 'Attached to workspace',
-              prUrl: existingUrl,
-              prNumber: existingNumber
-            })
-            return
+        if (!existingNumber) {
+          // Fallback: parse the error message ([\s\S] to match across newlines)
+          const errMsg = createResult.error ?? ''
+          const alreadyExistsMatch = errMsg.match(
+            /already exists[\s\S]*?\/pull\/(\d+)|pull request.*?#(\d+).*?already/i
+          )
+          if (alreadyExistsMatch) {
+            existingNumber = parseInt(alreadyExistsMatch[1] || alreadyExistsMatch[2], 10)
+            if (!existingUrl) {
+              const urlMatch = errMsg.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)
+              existingUrl = urlMatch?.[0] ?? `https://github.com/unknown/pull/${existingNumber}`
+            }
           }
         }
 
-        throw new Error(errMsg)
+        if (existingNumber) {
+          existingUrl = existingUrl ?? `https://github.com/unknown/pull/${existingNumber}`
+
+          // Auto-attach the existing PR
+          await attachPR(worktreeId, existingNumber, existingUrl)
+
+          update(notifId, {
+            status: 'info',
+            message: `PR #${existingNumber} already exists`,
+            description: 'Attached to workspace',
+            prUrl: existingUrl,
+            prNumber: existingNumber
+          })
+          return
+        }
+
+        throw new Error(createResult.error ?? 'PR creation failed')
       }
 
       // Attach the new PR
