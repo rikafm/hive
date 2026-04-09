@@ -39,6 +39,7 @@ import { ClaudeCodeImplementer } from './services/claude-code-implementer'
 import { CodexImplementer } from './services/codex-implementer'
 import { AgentSdkManager } from './services/agent-sdk-manager'
 import { resolveClaudeBinaryPath } from './services/claude-binary-resolver'
+import { setClaudeBinaryPath as setRouterClaudeBinaryPath } from './services/text-generation-router'
 import type { AgentSdkImplementer } from './services/agent-sdk-types'
 import { telemetryService } from './services/telemetry-service'
 import { registerTicketImportHandlers } from './ipc/ticket-import-handlers'
@@ -593,6 +594,7 @@ app.whenReady().then(async () => {
     const claudeImpl = new ClaudeCodeImplementer()
     claudeImpl.setDatabaseService(getDatabase())
     claudeImpl.setClaudeBinaryPath(claudeBinaryPath)
+    setRouterClaudeBinaryPath(claudeBinaryPath)
     const openCodePlaceholder = {
       id: 'opencode' as const,
       capabilities: {

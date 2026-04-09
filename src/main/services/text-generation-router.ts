@@ -20,6 +20,12 @@ let cachedSdks: AgentSdkDetection | null = null
 let cacheTimestamp = 0
 const SDK_CACHE_TTL_MS = 60_000
 
+let claudeBinaryPath: string | null = null
+
+export function setClaudeBinaryPath(path: string | null): void {
+  claudeBinaryPath = path
+}
+
 function getCachedSdkDetection(): AgentSdkDetection {
   const now = Date.now()
   if (!cachedSdks || now - cacheTimestamp > SDK_CACHE_TTL_MS) {
@@ -170,7 +176,8 @@ async function generateWithClaude(prompt: string, systemPrompt: string, modelOve
         effort: 'low',
         thinking: { type: 'disabled' },
         tools: [],
-        persistSession: false
+        persistSession: false,
+        ...(claudeBinaryPath ? { pathToClaudeCodeExecutable: claudeBinaryPath } : {})
       }
     })
 
