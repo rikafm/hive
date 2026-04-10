@@ -482,60 +482,13 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
                   borderState === 'default' && 'border-border/60',
                   borderState === 'blue' && 'border-blue-500/60',
                   borderState === 'violet' && 'border-violet-500/60',
-                  // Left accent stripe for non-legendary marks
+                  // Left accent stripe for marks
                   ticket.mark === 'common' && 'border-l-4 !border-l-green-500',
                   ticket.mark === 'rare' && 'border-l-4 !border-l-blue-500',
                   ticket.mark === 'epic' && 'border-l-4 !border-l-purple-500',
-                  // Legendary: dragon frame wrapping the border (extends beyond card)
-                  ticket.mark === 'legendary' && 'relative p-3 overflow-visible'
+                  ticket.mark === 'legendary' && 'border-l-4 !border-l-orange-500'
                 )}
               >
-            {/* Dragon frame ON the border for legendary tickets (uxwing.com dragon, public domain) */}
-            {/* SVG extends 14px beyond card edges; dragon straddles the border via evenodd clip */}
-            {ticket.mark === 'legendary' && (
-              <svg
-                className={cn(
-                  'absolute pointer-events-none z-10',
-                  ticket.mode === 'build' ? 'text-blue-500' :
-                  (ticket.mode === 'plan' || ticket.mode === 'super-plan') ? 'text-violet-500' :
-                  'text-gray-400'
-                )}
-                style={{ left: '-14px', top: '-14px', width: 'calc(100% + 28px)', height: 'calc(100% + 28px)', overflow: 'visible' }}
-                viewBox="-14 -14 378 128"
-                fill="none"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  {/* Border-straddling clip: ring from 14px outside to 8px inside card edge */}
-                  <clipPath id={`dbs_${ticket.id}`}>
-                    <path d="M-14,-14 H364 V114 H-14 Z M8,8 V92 H342 V8 Z" fillRule="evenodd" />
-                  </clipPath>
-                </defs>
-
-                {/* Outer border line */}
-                <rect x="-1" y="-1" width="352" height="102" rx="9" ry="9" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.5" />
-                {/* Inner content border */}
-                <rect x="7" y="7" width="336" height="86" rx="4" ry="4" stroke="currentColor" strokeWidth="0.5" fill="none" opacity="0.15" />
-
-                {/* Dragon silhouettes clipped to border-straddling ring */}
-                <g clipPath={`url(#dbs_${ticket.id})`}>
-                  {/* Primary: head at top-right corner, rotated 12deg for natural wrap */}
-                  <g transform="translate(350, 0) rotate(12) scale(-1.265, 1.265) translate(-60, -53)" opacity="0.55">
-                    <path d="M52.4,20.33C60.04,15.89,63.76,8.53,68.19,0c2.26,2.44,3.48,8.44,2.98,16.83c21.29-1.39,34.78,10.58,51.71-7.42C115.6,37.52,89.32,21.55,78.34,24c16.95,1.92,21.76,11.28,41.28,7.96c-6.72,8.09-21.59,6.45-34.11,0.75c2.21,6.08,24.83,10.01,20.22,28.16c-4.36-7.49-8.45-12.09-12.29-14.08c7.91,13.68,7.29,26.15-0.09,39.78c-1.63,3-3.62,5.73-6.05,8.09c3.38-7.47,5.02-14.43,3.58-20.48c-1.37,5.2-26.98,55.76-13.31,14.34C50.27,115.34,23.7,88.04,0,106.68c7.91-37.07,50.98-22.56,66.84-39.74c3.26-3.54,4.44-8.33,3.04-11.78c-4.08-10.04-18.37-7.09-23.55-0.96c-3.19,4.91-9.37,10.37-14.44,4.29c-0.83-0.99-1.3-2.26-1.43-3.78c2.56,1.09,5.12,1.51,7.68,0.26l-2.05-2.3c2.73-0.77,5.78,0.09,8.19-2.42l8.96-5.89c1.71-1.26-2.13-2.07-11.26-2.7c-0.77,1.99-0.42,3.81,1.79,5.38c-2.62,0.35-4.89-0.35-6.66-2.56c-1.04,0.81-0.89,1.38,1.9,5.81c-2.51,0.11-5.02-0.89-7.53-2.48c-0.58,2.02,0.27,4.04,0.41,6.06c-1.83-0.53-3.51-1.4-5.02-2.62c-1.52-1.23-2.89-2.8-4.09-4.72c-0.83-1.88-0.82-3.29-0.18-4.34c0.39-0.65,1.02-1.16,1.85-1.57c3.1-1.53,4.66-1.35,8.29-3.77c3.43-2.28,6.93-5.01,9.91-8.69C47.47,22.2,47.34,23.27,52.4,20.33L52.4,20.33z M51.69,29.57c-1.19,0.49-1.28,1.07-2.92,1.52c-0.49,0.13-1.35,0.87-1.62,1.3c-0.84,1.37,2.22,2.1,3.14,0.46c0.23-0.4,1.26-2.3,1.34-2.53c0.08-0.24,0.29-0.43,0.13-0.7C51.74,29.62,51.73,29.56,51.69,29.57L51.69,29.57z" fill="currentColor" fillRule="evenodd" />
-                  </g>
-                  {/* Secondary: mirrored at bottom-left corner */}
-                  <g transform="translate(0, 100) rotate(-12) scale(1.265, -1.265) translate(-60, -53)" opacity="0.3">
-                    <path d="M52.4,20.33C60.04,15.89,63.76,8.53,68.19,0c2.26,2.44,3.48,8.44,2.98,16.83c21.29-1.39,34.78,10.58,51.71-7.42C115.6,37.52,89.32,21.55,78.34,24c16.95,1.92,21.76,11.28,41.28,7.96c-6.72,8.09-21.59,6.45-34.11,0.75c2.21,6.08,24.83,10.01,20.22,28.16c-4.36-7.49-8.45-12.09-12.29-14.08c7.91,13.68,7.29,26.15-0.09,39.78c-1.63,3-3.62,5.73-6.05,8.09c3.38-7.47,5.02-14.43,3.58-20.48c-1.37,5.2-26.98,55.76-13.31,14.34C50.27,115.34,23.7,88.04,0,106.68c7.91-37.07,50.98-22.56,66.84-39.74c3.26-3.54,4.44-8.33,3.04-11.78c-4.08-10.04-18.37-7.09-23.55-0.96c-3.19,4.91-9.37,10.37-14.44,4.29c-0.83-0.99-1.3-2.26-1.43-3.78c2.56,1.09,5.12,1.51,7.68,0.26l-2.05-2.3c2.73-0.77,5.78,0.09,8.19-2.42l8.96-5.89c1.71-1.26-2.13-2.07-11.26-2.7c-0.77,1.99-0.42,3.81,1.79,5.38c-2.62,0.35-4.89-0.35-6.66-2.56c-1.04,0.81-0.89,1.38,1.9,5.81c-2.51,0.11-5.02-0.89-7.53-2.48c-0.58,2.02,0.27,4.04,0.41,6.06c-1.83-0.53-3.51-1.4-5.02-2.62c-1.52-1.23-2.89-2.8-4.09-4.72c-0.83-1.88-0.82-3.29-0.18-4.34c0.39-0.65,1.02-1.16,1.85-1.57c3.1-1.53,4.66-1.35,8.29-3.77c3.43-2.28,6.93-5.01,9.91-8.69C47.47,22.2,47.34,23.27,52.4,20.33L52.4,20.33z M51.69,29.57c-1.19,0.49-1.28,1.07-2.92,1.52c-0.49,0.13-1.35,0.87-1.62,1.3c-0.84,1.37,2.22,2.1,3.14,0.46c0.23-0.4,1.26-2.3,1.34-2.53c0.08-0.24,0.29-0.43,0.13-0.7C51.74,29.62,51.73,29.56,51.69,29.57L51.69,29.57z" fill="currentColor" fillRule="evenodd" />
-                  </g>
-                </g>
-
-                {/* Corner gems */}
-                <circle cx="0" cy="0" r="3" fill="currentColor" opacity="0.55" />
-                <circle cx="350" cy="0" r="3" fill="currentColor" opacity="0.55" />
-                <circle cx="0" cy="100" r="3" fill="currentColor" opacity="0.55" />
-                <circle cx="350" cy="100" r="3" fill="currentColor" opacity="0.55" />
-              </svg>
-            )}
             {/* Title + top-right indicators */}
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-medium leading-snug text-foreground min-w-0">{ticket.title}</p>
