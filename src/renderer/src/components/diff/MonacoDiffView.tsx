@@ -34,6 +34,7 @@ export default function MonacoDiffView({
   fileName,
   staged,
   isUntracked,
+  isNewFile,
   compareBranch,
   scrollToLine,
   scrollTrigger,
@@ -77,6 +78,14 @@ export default function MonacoDiffView({
     setError(null)
 
     try {
+      if (isNewFile || isUntracked) {
+        // Untracked/new files have no git history – read from disk
+        const modResult = await window.gitOps.getFileContent(worktreePath, filePath)
+        setOriginalContent('')
+        setModifiedContent(modResult.success ? (modResult.content ?? '') : '')
+        return
+      }
+
       if (compareBranch) {
         // Branch diff: original = merge-base content, modified = working tree.
         // Uses merge-base so only changes from commits ahead of the target branch
@@ -135,7 +144,7 @@ export default function MonacoDiffView({
       setIsLoading(false)
       isInitialLoad.current = false
     }
-  }, [worktreePath, filePath, staged, compareBranch])
+  }, [worktreePath, filePath, staged, isNewFile, isUntracked, compareBranch])
 
   // Fetch on mount and when refresh is triggered
   useEffect(() => {
