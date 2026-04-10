@@ -161,8 +161,34 @@ function createWindow(): void {
     mainWindow.maximize()
   }
 
+  let windowShown = false
+
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    windowShown = true
+    log.info('Window ready-to-show fired, showing window')
+    mainWindow!.show()
+  })
+
+  // Safety timeout — on Windows the renderer can take 10+ seconds to fire ready-to-show.
+  // Force-show the window after 3 seconds so the user sees something while it finishes loading.
+  setTimeout(() => {
+    if (!windowShown && mainWindow && !mainWindow.isDestroyed()) {
+      log.warn('Window ready-to-show did not fire within 3s — force-showing window')
+      mainWindow.show()
+    }
+  }, 3_000)
+
+  // Log renderer failures that would silently prevent ready-to-show
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    log.error('Renderer failed to load', new Error(errorDescription), { errorCode, validatedURL })
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    log.error('Renderer process gone', new Error(details.reason), { exitCode: details.exitCode })
+  })
+
+  mainWindow.on('unresponsive', () => {
+    log.warn('Window became unresponsive')
   })
 
   // Emit focus event to renderer for git refresh on window focus
@@ -232,9 +258,12 @@ function createWindow(): void {
   // HMR for renderer based on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    log.info('Loading renderer URL (dev)', { url: process.env['ELECTRON_RENDERER_URL'] })
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    const rendererPath = join(__dirname, '../renderer/index.html')
+    log.info('Loading renderer file', { path: rendererPath })
+    mainWindow.loadFile(rendererPath)
   }
 }
 
@@ -575,7 +604,9 @@ app.whenReady().then(async () => {
     registerLoggingHandlers()
   }
 
+  log.info('Creating main window')
   createWindow()
+  log.info('Main window created, waiting for renderer to load')
 
   // Register OpenCode handlers after window is created
   if (mainWindow) {
@@ -668,6 +699,9 @@ app.whenReady().then(async () => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch((error) => {
+  log.error('Fatal error during app startup', error instanceof Error ? error : new Error(String(error)))
+  app.quit()
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
