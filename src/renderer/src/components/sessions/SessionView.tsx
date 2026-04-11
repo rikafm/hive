@@ -505,8 +505,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     sessionCapabilitiesRef.current = sessionCapabilities
   }, [sessionCapabilities])
 
-  useEffect(() => { isStreamingRef.current = isStreaming }, [isStreaming])
-
   const allSlashCommands = useMemo(() => {
     const seen = new Set<string>()
     const ordered = [...BUILT_IN_SLASH_COMMANDS, ...slashCommands]
@@ -732,6 +730,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const codexRefreshInFlightRef = useRef(false)
   const codexRefreshPendingRef = useRef(false)
   const isStreamingRef = useRef(isStreaming)
+  useEffect(() => { isStreamingRef.current = isStreaming }, [isStreaming])
   const codexStreamingMessageIdRef = useRef<string | null>(null)
   const seenCodexEventIdsRef = useRef<Set<string>>(new Set())
   const seenCodexEventIdsQueueRef = useRef<string[]>([])
@@ -3306,7 +3305,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           opencodeSessionId
         )
         if (transcriptResult.success) {
-          const isIdle = !isStreaming
+          const isIdle = !isStreamingRef.current
           const liveMessages = mergeCodexActivityMessages(
             mapOpencodeMessagesToSessionViewMessages(
               Array.isArray(transcriptResult.messages) ? transcriptResult.messages : []
@@ -3338,7 +3337,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     )
     setMessages(loadedMessages)
     return true
-  }, [isStreaming, opencodeSessionId, sessionId, sessionRecord?.agent_sdk, worktreePath])
+  }, [opencodeSessionId, sessionId, sessionRecord?.agent_sdk, worktreePath])
 
   const refreshCodexStreamingMessages = useCallback(async (): Promise<void> => {
     if (sessionRecord?.agent_sdk !== 'codex') return
