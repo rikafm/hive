@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { APP_SETTINGS_DB_KEY } from '@shared/types/settings'
 import type { UsageProvider } from '@shared/types/usage'
+import type { ReviewPromptType } from '@/constants/reviewPrompts'
 
 // ==========================================
 // Types
@@ -117,6 +118,9 @@ export interface AppSettings {
   // Advanced
   environmentVariables: Array<{ key: string; value: string }>
 
+  // Review
+  reviewPromptType: ReviewPromptType
+
   // Migration flags
   _boardModeMigratedToStickyTab?: boolean
 }
@@ -173,6 +177,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   telemetryEnabled: true,
   tipsEnabled: true,
   environmentVariables: [],
+  reviewPromptType: 'superpowers',
   _boardModeMigratedToStickyTab: false
 }
 
@@ -304,6 +309,7 @@ function extractSettings(state: SettingsState): AppSettings {
     telemetryEnabled: state.telemetryEnabled,
     tipsEnabled: state.tipsEnabled,
     environmentVariables: state.environmentVariables,
+    reviewPromptType: state.reviewPromptType,
     _boardModeMigratedToStickyTab: state._boardModeMigratedToStickyTab
   }
 }
@@ -557,6 +563,7 @@ export const useSettingsStore = create<SettingsState>()(
         telemetryEnabled: state.telemetryEnabled,
         tipsEnabled: state.tipsEnabled,
         environmentVariables: state.environmentVariables,
+        reviewPromptType: state.reviewPromptType,
         _boardModeMigratedToStickyTab: state._boardModeMigratedToStickyTab
       })
     }
