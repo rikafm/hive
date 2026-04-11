@@ -1604,11 +1604,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
             if (codexEventId) {
               if (seenCodexEventIdsRef.current.includes(codexEventId)) {
-                console.debug('[CODEX_STREAM_DUPLICATE_EVENT_DROPPED]', {
-                  sessionId,
-                  codexEventId,
-                  eventType: event.type
-                })
                 return
               }
 
@@ -3353,13 +3348,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       durableState.activities,
       !isStreaming
     )
-    const lastAssistant = [...liveMessages].reverse().find((message) => message.role === 'assistant')
-    console.debug('[CODEX_STREAM_RENDER_REFRESH]', {
-      sessionId,
-      messageCount: liveMessages.length,
-      lastAssistantId: lastAssistant?.id,
-      lastAssistantPreview: lastAssistant?.content.slice(0, 120)
-    })
     setMessages(liveMessages)
   }, [isStreaming, opencodeSessionId, sessionId, sessionRecord?.agent_sdk, worktreePath])
 
@@ -3391,29 +3379,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
   const applyCodexStreamingPart = useCallback(
     (part: StreamingPart) => {
-      if (part.type === 'text' && part.text) {
-        console.debug('[CODEX_STREAM_RENDER_APPLY_TEXT]', {
-          sessionId,
-          len: part.text.length,
-          preview: part.text.slice(0, 120)
-        })
-      }
-      if (part.type === 'reasoning' && part.reasoning) {
-        console.debug('[CODEX_STREAM_RENDER_APPLY_REASONING]', {
-          sessionId,
-          len: part.reasoning.length,
-          preview: part.reasoning.slice(0, 120)
-        })
-      }
-      if (part.type === 'tool_use' && part.toolUse) {
-        console.debug('[CODEX_STREAM_RENDER_APPLY_TOOL]', {
-          sessionId,
-          toolId: part.toolUse.id,
-          name: part.toolUse.name,
-          status: part.toolUse.status
-        })
-      }
-
       setMessages((currentMessages) => {
         const messageId =
           codexStreamingMessageIdRef.current ?? `codex-streaming-${crypto.randomUUID()}`
@@ -3515,7 +3480,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
         return [...nextMessages, nextMessage]
       })
     },
-    [sessionId, setMessages]
+    [setMessages]
   )
 
   const handleForkFromAssistantMessage = useCallback(

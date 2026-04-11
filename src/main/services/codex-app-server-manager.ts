@@ -933,16 +933,6 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         ? asString(asObject(notification.params)?.delta)
         : undefined
 
-    if (textDelta) {
-      log.info('CODEX_STREAM_RAW_DELTA', {
-        threadId: context.session.threadId,
-        turnId: route.turnId,
-        itemId: route.itemId,
-        len: textDelta.length,
-        preview: textDelta.slice(0, 120)
-      })
-    }
-
     this.emitEvent({
       id: randomUUID(),
       kind: 'notification',

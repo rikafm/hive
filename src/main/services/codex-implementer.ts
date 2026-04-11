@@ -20,6 +20,7 @@ import { autoRenameWorktreeBranch } from './git-service'
 import { normalizeCodexToolName, stripShellPrefix } from '@shared/codex-tool-normalizer'
 
 const log = createLogger({ component: 'CodexImplementer' })
+const PERSIST_DEBOUNCE_MS = 2000
 
 // ── Session state ─────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ export interface CodexSessionState {
   revertDiff: string | null
   titleGenerated: boolean
   titleGenerationStarted: boolean
+  persistDebounceTimer: ReturnType<typeof setTimeout> | null
 }
 
 interface CodexLiveToolPart {
@@ -413,7 +415,8 @@ export class CodexImplementer implements AgentSdkImplementer {
       revertMessageID: null,
       revertDiff: null,
       titleGenerated: false,
-      titleGenerationStarted: false
+      titleGenerationStarted: false,
+      persistDebounceTimer: null
     }
     this.sessions.set(key, state)
 
@@ -1805,32 +1808,12 @@ export class CodexImplementer implements AgentSdkImplementer {
     const partType = asString(part.type)
     if (partType === 'text') {
       const delta = asString(data?.delta) ?? asString(part.text) ?? ''
-      if (delta) {
-        log.info('CODEX_STREAM_CANONICAL_TEXT_APPEND', {
-          hiveSessionId: session.hiveSessionId,
-          threadId: session.threadId,
-          turnId: event.turnId ?? session.currentTurnId,
-          currentAssistantMessageId: session.currentAssistantMessageId,
-          len: delta.length,
-          preview: delta.slice(0, 120)
-        })
-      }
       this.appendCanonicalAssistantText(session, 'text', delta, event.turnId ?? session.currentTurnId ?? undefined)
       return delta.length > 0
     }
 
     if (partType === 'reasoning') {
       const delta = asString(data?.delta) ?? asString(part.text) ?? ''
-      if (delta) {
-        log.info('CODEX_STREAM_CANONICAL_REASONING_APPEND', {
-          hiveSessionId: session.hiveSessionId,
-          threadId: session.threadId,
-          turnId: event.turnId ?? session.currentTurnId,
-          currentAssistantMessageId: session.currentAssistantMessageId,
-          len: delta.length,
-          preview: delta.slice(0, 120)
-        })
-      }
       this.appendCanonicalAssistantText(
         session,
         'reasoning',
