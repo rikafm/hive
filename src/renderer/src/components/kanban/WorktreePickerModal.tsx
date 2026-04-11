@@ -90,12 +90,14 @@ function buildPrompt(mode: PickerMode, ticket: KanbanTicket): string {
 
   let attachmentsXml = ''
   if (attachments.length > 0) {
-    const items = attachments.map((a) => {
-      if (a.type === 'file') {
-        return `<file path="${a.url}">${a.label}</file>`
+    const items: string[] = []
+    for (const a of attachments) {
+      if (a.type === 'image' || a.type === 'file') {
+        items.push(`<file path="${a.url}">${a.label}</file>`)
+      } else {
+        items.push(`<link type="${a.type}" url="${a.url}">${a.label}</link>`)
       }
-      return `<link type="${a.type}" url="${a.url}">${a.label}</link>`
-    })
+    }
     attachmentsXml = `\n<attachments>\n${items.join('\n')}\n</attachments>`
   }
 
