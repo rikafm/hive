@@ -6,6 +6,7 @@ import { createLogger } from './logger'
 
 const log = createLogger({ component: 'PerfDiagnostics' })
 
+const PERF_VERSION = 'v5'
 const INTERVAL_MS = 30_000
 const MAX_LOG_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_ROTATED_FILES = 2
@@ -20,6 +21,7 @@ export interface MetricCollectors {
 }
 
 export interface PerfSnapshot {
+  perfVersion: string
   timestamp: string
   uptimeMs: number
   cpu: {
@@ -193,6 +195,7 @@ class PerfDiagnosticsService {
     }
 
     return {
+      perfVersion: PERF_VERSION,
       timestamp: new Date(now).toISOString(),
       uptimeMs: process.uptime() * 1000,
       cpu: {
