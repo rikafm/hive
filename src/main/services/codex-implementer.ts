@@ -1963,6 +1963,8 @@ export class CodexImplementer implements AgentSdkImplementer {
       tool: tool.tool,
       state: tool.state
     })
+    // Remove outputDelta from persisted state — it's transient (new-tool path)
+    delete (draft.parts[draft.parts.length - 1].state as any).outputDelta
   }
 
   private updateLiveAssistantDraftFromStreamEvent(

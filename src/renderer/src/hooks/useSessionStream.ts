@@ -118,7 +118,7 @@ export function useSessionStream({
       toolId: string,
       update: Partial<ToolUseInfo> & { name?: string; input?: Record<string, unknown>; outputDelta?: string }
     ) => {
-      const { outputDelta: _outputDelta, ...restUpdate } = update
+      const { outputDelta: _outputDelta, output: _output, ...restUpdate } = update
       updateStreamingPartsRef((parts) => {
         const existingIndex = parts.findIndex(
           (p) => p.type === 'tool_use' && p.toolUse?.id === toolId
