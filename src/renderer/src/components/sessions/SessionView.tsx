@@ -729,8 +729,11 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const codexRefreshRafRef = useRef<number | null>(null)
   const codexRefreshInFlightRef = useRef(false)
   const codexRefreshPendingRef = useRef(false)
+  const isStreamingRef = useRef(isStreaming)
+  useEffect(() => { isStreamingRef.current = isStreaming }, [isStreaming])
   const codexStreamingMessageIdRef = useRef<string | null>(null)
-  const seenCodexEventIdsRef = useRef<string[]>([])
+  const seenCodexEventIdsRef = useRef<Set<string>>(new Set())
+  const seenCodexEventIdsQueueRef = useRef<string[]>([])
 
   // Guard: tracks whether a new prompt was sent during the current streaming cycle.
   // When true, finalizeResponse skips the full reload to avoid
@@ -1558,7 +1561,8 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     streamingContentRef.current = ''
     childToSubtaskIndexRef.current = new Map()
     codexStreamingMessageIdRef.current = null
-    seenCodexEventIdsRef.current = []
+    seenCodexEventIdsRef.current = new Set()
+    seenCodexEventIdsQueueRef.current = []
     codexRefreshPendingRef.current = false
     codexRefreshInFlightRef.current = false
     if (codexRefreshRafRef.current !== null) {
@@ -1603,13 +1607,15 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
                 : null
 
             if (codexEventId) {
-              if (seenCodexEventIdsRef.current.includes(codexEventId)) {
+              if (seenCodexEventIdsRef.current.has(codexEventId)) {
                 return
               }
-
-              seenCodexEventIdsRef.current.push(codexEventId)
-              if (seenCodexEventIdsRef.current.length > 500) {
-                seenCodexEventIdsRef.current = seenCodexEventIdsRef.current.slice(-250)
+              seenCodexEventIdsRef.current.add(codexEventId)
+              seenCodexEventIdsQueueRef.current.push(codexEventId)
+              if (seenCodexEventIdsQueueRef.current.length > 500) {
+                const recentIds = seenCodexEventIdsQueueRef.current.slice(-250)
+                seenCodexEventIdsRef.current = new Set(recentIds)
+                seenCodexEventIdsQueueRef.current = recentIds
               }
             }
           }
@@ -3346,10 +3352,10 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
         Array.isArray(transcriptResult.messages) ? transcriptResult.messages : []
       ),
       durableState.activities,
-      !isStreaming
+      !isStreamingRef.current
     )
     setMessages(liveMessages)
-  }, [isStreaming, opencodeSessionId, sessionId, sessionRecord?.agent_sdk, worktreePath])
+  }, [opencodeSessionId, sessionId, sessionRecord?.agent_sdk, worktreePath])
 
   const scheduleCodexStreamingRefresh = useCallback(() => {
     if (sessionRecord?.agent_sdk !== 'codex') return
@@ -4947,16 +4953,22 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   // The StreamingCursor (blinking cursor) only renders after text or tool_use parts.
   // Parts like reasoning, step_start, step_finish, compaction don't show it.
   // When those are the only parts, we still need the 3-dot loading indicator.
+  const codexHasWritingCursor = useMemo(() => {
+    if (sessionRecord?.agent_sdk !== 'codex' || !isStreaming) return false
+    for (let i = visibleMessages.length - 1; i >= 0; i--) {
+      if (visibleMessages[i].role === 'assistant') {
+        const msg = visibleMessages[i]
+        const lastPart = msg.parts?.[msg.parts.length - 1]
+        if (lastPart?.type === 'tool_use') return true
+        return Boolean(msg.content.trim())
+      }
+    }
+    return false
+  }, [visibleMessages, isStreaming, sessionRecord?.agent_sdk])
+
   const hasVisibleWritingCursor =
     sessionRecord?.agent_sdk === 'codex'
-      ? isStreaming &&
-        (() => {
-          const lastAssistant = [...visibleMessages].reverse().find((message) => message.role === 'assistant')
-          if (!lastAssistant) return false
-          const lastPart = lastAssistant.parts?.[lastAssistant.parts.length - 1]
-          if (lastPart?.type === 'tool_use') return true
-          return Boolean(lastAssistant.content.trim())
-        })()
+      ? codexHasWritingCursor
       : hasStreamingContent &&
         isStreaming &&
         (streamingContent.length > 0 ||
