@@ -2,11 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   Eye,
   EyeOff,
-  Plus,
   X,
-  Ticket,
-  Figma,
-  Link as LinkIcon,
   Trash2,
   ExternalLink,
   Hammer,
@@ -24,9 +20,7 @@ import {
   GitMerge,
   Archive,
   Loader2,
-  Github,
-  FileUp,
-  File as FileIcon
+  Github
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -39,12 +33,6 @@ import {
   DialogDescription
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { MarkdownRenderer } from '../sessions/MarkdownRenderer'
@@ -62,8 +50,6 @@ import { notifyKanbanSessionSync } from '@/stores/store-coordination'
 import { messageSendTimes, lastSendMode, userExplicitSendTimes } from '@/lib/message-send-times'
 import { snapshotTokenBaseline } from '@/lib/token-baselines'
 import { PLAN_MODE_PREFIX, SUPER_PLAN_MODE_PREFIX, isPlanLike } from '@/lib/constants'
-import { parseAttachmentUrl } from '@/lib/attachment-utils'
-import type { AttachmentInfo } from '@/lib/attachment-utils'
 import { buildSdkPlanImplementationPrompt } from '@/lib/proposedPlan'
 import { toast } from '@/lib/toast'
 import { useScriptStore, fireRunScript, killRunScript } from '@/stores/useScriptStore'
@@ -77,6 +63,8 @@ import {
 import { ProviderIcon, getProviderLabel } from '@/components/ui/provider-icon'
 import { useLifecycleActions } from '@/hooks/useLifecycleActions'
 import { usePinAndActivateSession } from '@/hooks/usePinAndActivateSession'
+import { TicketAttachmentEditor, MAX_ATTACHMENTS } from './TicketAttachmentEditor'
+import { useImagePaste } from '@/hooks/useImagePaste'
 import type { KanbanTicket, KanbanTicketUpdate, Worktree } from '../../../../main/db/types'
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -92,9 +80,8 @@ const MODE_DIALOG_CLASS: Record<ModalMode, string> = {
   question: 'sm:max-w-lg'
 }
 
-interface TicketAttachment extends AttachmentInfo {
-  url: string
-}
+// TicketAttachment is now imported from TicketAttachmentEditor
+type TicketAttachment = import('./TicketAttachmentEditor').TicketAttachment
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -768,14 +755,11 @@ function EditModeContent({
   const [attachments, setAttachments] = useState<TicketAttachment[]>(
     () =>
       (ticket.attachments as Array<{ type: string; url: string; label: string }>).map((a) => ({
-        type: a.type as 'jira' | 'figma' | 'file' | 'generic',
+        type: a.type as 'jira' | 'figma' | 'file' | 'image',
         url: a.url,
         label: a.label
       })) ?? []
   )
-  const [showAttachInput, setShowAttachInput] = useState(false)
-  const [attachUrl, setAttachUrl] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
   const lifecycle = useLifecycleActions(ticket.worktree_id)
   const { pinAndActivate: pinAndActivateSession, lifecycleLoading } = usePinAndActivateSession(onClose)
@@ -786,31 +770,12 @@ function EditModeContent({
     if (lifecycle.hasAttachedPR) lifecycle.loadPRState()
   }, [lifecycle.hasAttachedPR])
 
-  const detectedAttachment = attachUrl.trim() ? parseAttachmentUrl(attachUrl.trim()) : null
-
-  const handleAddAttachment = useCallback(() => {
-    if (!detectedAttachment || !attachUrl.trim()) return
-    setAttachments((prev) => [...prev, { ...detectedAttachment, url: attachUrl.trim() }])
-    setAttachUrl('')
-    setShowAttachInput(false)
-  }, [detectedAttachment, attachUrl])
-
-  const handleRemoveAttachment = useCallback((index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-    for (const file of Array.from(files)) {
-      const filePath = window.fileOps.getPathForFile(file)
-      setAttachments((prev) => [
-        ...prev,
-        { type: 'file' as const, url: filePath, label: file.name }
-      ])
-    }
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
+  // ── Image paste/drop ───────────────────────────────────────────────
+  const { isDragOver, handlePaste, handleDragOver, handleDragEnter, handleDragLeave, handleDrop } = useImagePaste({
+    maxAttachments: MAX_ATTACHMENTS,
+    currentCount: attachments.length,
+    onAttach: (attachment) => setAttachments((prev) => [...prev, attachment])
+  })
 
   const handleSave = useCallback(async () => {
     if (!title.trim() || isSaving) return
@@ -851,7 +816,15 @@ function EditModeContent({
   )
 
   return (
-    <div onKeyDown={handleKeyDown}>
+    <div
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={cn(isDragOver && "ring-2 ring-primary ring-offset-2 rounded-lg")}
+    >
       <DialogHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -940,109 +913,11 @@ function EditModeContent({
         </div>
 
         {/* Attachments */}
-        <div className="space-y-2">
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {attachments.map((attachment, index) => (
-                <span
-                  key={index}
-                  data-testid={`ticket-edit-attachment-chip-${index}`}
-                  className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1 text-xs"
-                >
-                  {attachment.type === 'jira' ? (
-                    <Ticket className="h-3 w-3 text-blue-500" />
-                  ) : attachment.type === 'figma' ? (
-                    <Figma className="h-3 w-3 text-purple-500" />
-                  ) : attachment.type === 'file' ? (
-                    <FileIcon className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <LinkIcon className="h-3 w-3 text-muted-foreground" />
-                  )}
-                  <span className="max-w-[180px] truncate">{attachment.label}</span>
-                  <button
-                    data-testid={`ticket-edit-attachment-remove-${index}`}
-                    onClick={() => handleRemoveAttachment(index)}
-                    className="ml-0.5 rounded-sm hover:bg-muted transition-colors"
-                  >
-                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {showAttachInput ? (
-            <div className="flex items-center gap-2">
-              <Input
-                data-testid="ticket-edit-attachment-url-input"
-                placeholder="Paste a Jira or Figma URL"
-                value={attachUrl}
-                onChange={(e) => setAttachUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && detectedAttachment) {
-                    e.preventDefault()
-                    handleAddAttachment()
-                  }
-                  if (e.key === 'Escape') {
-                    setShowAttachInput(false)
-                    setAttachUrl('')
-                  }
-                }}
-                autoFocus
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                size="sm"
-                data-testid="ticket-edit-attachment-confirm-btn"
-                disabled={!detectedAttachment}
-                onClick={handleAddAttachment}
-              >
-                Add
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowAttachInput(false)
-                  setAttachUrl('')
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <>
-              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    data-testid="ticket-edit-add-attachment-btn"
-                    className="gap-1 text-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add attachment
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onSelect={() => setShowAttachInput(true)}>
-                    <LinkIcon className="h-4 w-4 mr-2" />
-                    URL
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => fileInputRef.current?.click()}>
-                    <FileUp className="h-4 w-4 mr-2" />
-                    File / Image
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-
-          )}
-        </div>
+        <TicketAttachmentEditor
+          attachments={attachments}
+          onChange={setAttachments}
+          testIdPrefix="ticket-edit"
+        />
       </div>
 
       <DialogFooter className="flex items-center justify-between sm:justify-between flex-wrap gap-y-2">
