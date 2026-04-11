@@ -148,6 +148,7 @@ export function WorktreePickerModal({
   const updateTicket = useKanbanStore((state) => state.updateTicket)
   const createSession = useSessionStore((state) => state.createSession)
   const createWorktreeFromBranch = useWorktreeStore((state) => state.createWorktreeFromBranch)
+  const syncWorktrees = useWorktreeStore((state) => state.syncWorktrees)
 
   const project = useProjectStore(
     useCallback(
@@ -231,8 +232,12 @@ export function WorktreePickerModal({
       setBranches([])
       setBranchFilter('')
       setBranchPopoverOpen(false)
+      // Refresh worktree list from git so the picker shows current state
+      if (project?.path) {
+        syncWorktrees(projectId, project.path)
+      }
     }
-  }, [open, ticket, projectId])
+  }, [open, ticket, projectId, project?.path, syncWorktrees])
 
   // ── Branch filtering ───────────────────────────────────────────
   const filteredBranches = useMemo(() => {
