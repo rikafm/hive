@@ -1,10 +1,9 @@
 import type { Resolvers } from '../../__generated__/resolvers-types'
-import { readFile, readFileAsBase64, readPromptFile } from '../../../main/services/file-ops'
+import { readFile, readFileAsBase64 } from '../../../main/services/file-ops'
 
 export const fileQueryResolvers: Resolvers = {
   Query: {
     fileRead: async (_parent, { filePath }) => readFile(filePath),
-    fileReadPrompt: async (_parent, { promptName }) => readPromptFile(promptName),
     fileReadImageAsBase64: async (_parent, { filePath }) => {
       const result = readFileAsBase64(filePath)
       return {

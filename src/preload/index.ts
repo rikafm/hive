@@ -1537,10 +1537,6 @@ const fileOps = {
     ipcRenderer.invoke('file:read', filePath),
   writeFile: (filePath: string, content: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('file:write', filePath, content),
-  readPrompt: (
-    promptName: string
-  ): Promise<{ success: boolean; content?: string; error?: string }> =>
-    ipcRenderer.invoke('file:readPrompt', promptName),
   readImageAsBase64: (
     filePath: string
   ): Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }> =>

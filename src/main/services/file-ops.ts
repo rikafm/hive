@@ -1,6 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, statSync } from 'fs'
 import { join } from 'path'
-import { app } from 'electron'
 import { getImageMimeType } from '@shared/types/file-utils'
 
 const MAX_FILE_SIZE = 1024 * 1024 // 1MB
@@ -56,32 +55,6 @@ export function readFileAsBase64(filePath: string): {
     const data = buffer.toString('base64')
     const mimeType = getImageMimeType(filePath) ?? undefined
     return { success: true, data, mimeType }
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
-  }
-}
-
-export function readPromptFile(promptName: string): {
-  success: boolean
-  content?: string
-  error?: string
-} {
-  try {
-    if (!promptName || typeof promptName !== 'string') {
-      return { success: false, error: 'Invalid prompt name' }
-    }
-    const appPath = app.getAppPath()
-    let promptPath = join(appPath, 'prompts', promptName)
-    if (!existsSync(promptPath)) {
-      const resourcesPath = join(appPath, '..', 'prompts', promptName)
-      if (existsSync(resourcesPath)) {
-        promptPath = resourcesPath
-      } else {
-        return { success: false, error: 'Prompt file not found' }
-      }
-    }
-    const content = readFileSync(promptPath, 'utf-8')
-    return { success: true, content }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }

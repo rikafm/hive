@@ -73,7 +73,6 @@ type Query {
 
   # --- File ---
   fileRead(filePath: String!): FileReadResult!
-  fileReadPrompt(promptName: String!): FileReadResult!
   fileReadImageAsBase64(filePath: String!): FileReadImageResult!
 
   # --- Connection ---

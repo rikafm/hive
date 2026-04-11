@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { createLogger } from '../services/logger'
-import { readFile, readFileAsBase64, readPromptFile, writeFile } from '../services/file-ops'
+import { readFile, readFileAsBase64, writeFile } from '../services/file-ops'
 
 const log = createLogger({ component: 'FileHandlers' })
 
@@ -64,24 +64,4 @@ export function registerFileHandlers(): void {
     }
   )
 
-  // Read a prompt file from the app's own prompts/ directory
-  ipcMain.handle(
-    'file:readPrompt',
-    async (
-      _event,
-      promptName: string
-    ): Promise<{
-      success: boolean
-      content?: string
-      error?: string
-    }> => {
-      const result = readPromptFile(promptName)
-      if (!result.success) {
-        log.error('Failed to read prompt', new Error(result.error ?? 'Unknown error'), {
-          promptName
-        })
-      }
-      return result
-    }
-  )
 }

@@ -782,11 +782,6 @@ declare global {
         success: boolean
         error?: string
       }>
-      readPrompt: (promptName: string) => Promise<{
-        success: boolean
-        content?: string
-        error?: string
-      }>
       readImageAsBase64: (filePath: string) => Promise<{
         success: boolean
         data?: string

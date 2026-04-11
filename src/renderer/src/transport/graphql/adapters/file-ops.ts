@@ -35,22 +35,6 @@ export function createFileOpsAdapter(): FileOpsApi {
       return data.fileWrite
     },
 
-    async readPrompt(promptName: string): Promise<{
-      success: boolean
-      content?: string
-      error?: string
-    }> {
-      const data = await graphqlQuery<{
-        fileReadPrompt: { success: boolean; content?: string; error?: string }
-      }>(
-        `query ($promptName: String!) {
-          fileReadPrompt(promptName: $promptName) { success content error }
-        }`,
-        { promptName }
-      )
-      return data.fileReadPrompt
-    },
-
     async readImageAsBase64(filePath: string): Promise<{
       success: boolean
       data?: string
