@@ -261,6 +261,9 @@ export function mapCodexEventToStreamEvents(
   event: CodexManagerEvent,
   hiveSessionId: string
 ): OpenCodeStreamEvent[] {
+  // Attach Codex event ID for renderer-side dedup (seenCodexEventIds in
+  // SessionView). Placed on stream event `data`; does NOT flow into canonical
+  // message parts — extraction functions pick specific fields only.
   const annotateData = <T extends Record<string, unknown>>(data: T): T & { _codexEventId: string } => ({
     ...data,
     _codexEventId: event.id
