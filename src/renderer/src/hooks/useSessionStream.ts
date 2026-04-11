@@ -118,7 +118,7 @@ export function useSessionStream({
       toolId: string,
       update: Partial<ToolUseInfo> & { name?: string; input?: Record<string, unknown>; outputDelta?: string }
     ) => {
-      const { outputDelta: _outputDelta, output: _output, ...restUpdate } = update
+      const { outputDelta } = update as { outputDelta?: string }
       updateStreamingPartsRef((parts) => {
         const existingIndex = parts.findIndex(
           (p) => p.type === 'tool_use' && p.toolUse?.id === toolId
@@ -126,8 +126,8 @@ export function useSessionStream({
 
         if (existingIndex >= 0) {
           const existing = parts[existingIndex].toolUse!
-          const mergedOutput = update.outputDelta
-            ? ((existing.output as string) ?? '') + update.outputDelta
+          const mergedOutput = outputDelta
+            ? ((existing.output as string) ?? '') + outputDelta
             : (update.output ?? existing.output)
           return [
             ...parts.slice(0, existingIndex),
@@ -141,8 +141,7 @@ export function useSessionStream({
                 startTime: update.startTime ?? existing.startTime,
                 endTime: update.endTime ?? existing.endTime,
                 output: mergedOutput,
-                error: update.error ?? existing.error,
-                ...restUpdate
+                error: update.error ?? existing.error
               }
             },
             ...parts.slice(existingIndex + 1)
@@ -155,8 +154,9 @@ export function useSessionStream({
           input: update.input ?? {},
           status: update.status ?? 'running',
           startTime: update.startTime ?? Date.now(),
-          ...restUpdate,
-          ...(update.outputDelta ? { output: update.outputDelta } : {})
+          endTime: update.endTime,
+          output: outputDelta ?? update.output,
+          error: update.error
         }
         return [...parts, { type: 'tool_use' as const, toolUse: newToolUse }]
       })

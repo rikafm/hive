@@ -223,7 +223,7 @@ const TOOL_LIFECYCLE_ITEM_TYPES = new Set([
   'filechange',
   'fileread',
   'dynamictoolcall',
-  'collababenttoolcall',
+  'collabagenttoolcall',
   'mcptoolcall',
   'websearch'
 ])
