@@ -4025,6 +4025,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+    lastSendMode.delete(sessionId)
 
     // Abort the original backend session so it stops spinning
     if (worktreePath && opencodeSessionId) {
@@ -4084,6 +4085,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+    lastSendMode.delete(sessionId)
 
     // Abort the original backend session so it stops spinning
     if (worktreePath && opencodeSessionId) {
@@ -4185,6 +4187,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+    lastSendMode.delete(sessionId)
 
     // Abort the original backend session so it stops spinning
     if (worktreePath && opencodeSessionId) {

@@ -1421,6 +1421,7 @@ function PlanReviewModeContent({
       const sessionId = ticket.current_session_id
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+      lastSendMode.delete(sessionId)
 
       const sessionStore = useSessionStore.getState()
       const result = await sessionStore.createSession(ticket.worktree_id, ticket.project_id)
@@ -1500,6 +1501,7 @@ function PlanReviewModeContent({
       const sessionId = ticket.current_session_id
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+      lastSendMode.delete(sessionId)
 
       // Abort the original backend session so it stops spinning
       if (worktreePath && opcSessionId) {
@@ -1571,6 +1573,7 @@ function PlanReviewModeContent({
       const sessionId = ticket.current_session_id
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+      lastSendMode.delete(sessionId)
 
       // Abort the original backend session so it stops spinning
       if (worktreePath && opcSessionId) {
