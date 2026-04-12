@@ -80,7 +80,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const modal = document.querySelector('[data-testid="ticket-create-modal"]')
         if (modal?.contains(document.activeElement)) {
           e.stopImmediatePropagation()

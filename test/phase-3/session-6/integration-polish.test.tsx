@@ -231,7 +231,7 @@ This document tests all markdown features for performance.`
     test('Mode toggle has descriptive title', () => {
       render(<ModeToggle sessionId="test-session" />)
       const toggle = screen.getByTestId('mode-toggle')
-      expect(toggle.getAttribute('title')).toContain('Shift+Tab to toggle')
+      expect(toggle.getAttribute('title')).toContain('Shift+Tab')
     })
 
     test('Mode toggle icon is hidden from screen readers', () => {

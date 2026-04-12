@@ -4808,23 +4808,29 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     [handleAttach]
   )
 
-  // Global Tab key handler — toggles Build/Plan mode, blocks tab character insertion
+  // Global Tab/Shift+Tab key handler — toggles Build/Plan mode or Super-Plan
   const toggleSessionMode = useSessionStore((state) => state.toggleSessionMode)
+  const toggleSuperPlanShortcut = useSessionStore((state) => state.toggleSuperPlanShortcut)
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        // Don't intercept Tab inside the ticket creation modal — it needs
-        // natural tab navigation between title / description fields.
-        const createModal = document.querySelector('[data-testid="ticket-create-modal"]')
-        if (createModal?.contains(document.activeElement)) return
+      if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return
 
-        // Don't intercept Tab when the xterm terminal is focused — it needs
-        // to reach the shell for tab completion.
-        const terminalContainer = document.querySelector('[data-testid="terminal-view-container"]')
-        if (terminalContainer?.contains(document.activeElement)) return
+      // Don't intercept plain Tab inside the ticket creation modal — it needs
+      // natural tab navigation. Shift+Tab still toggles super-plan mode.
+      const createModal = document.querySelector('[data-testid="ticket-create-modal"]')
+      if (createModal?.contains(document.activeElement) && !e.shiftKey) return
 
-        e.preventDefault()
-        e.stopPropagation()
+      // Don't intercept Tab when the xterm terminal is focused — it needs
+      // to reach the shell for tab completion.
+      const terminalContainer = document.querySelector('[data-testid="terminal-view-container"]')
+      if (terminalContainer?.contains(document.activeElement)) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      if (e.shiftKey) {
+        toggleSuperPlanShortcut(sessionId)
+      } else {
         toggleSessionMode(sessionId)
       }
     }
@@ -4832,7 +4838,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     return () => {
       window.removeEventListener('keydown', handler, true)
     }
-  }, [sessionId, toggleSessionMode])
+  }, [sessionId, toggleSessionMode, toggleSuperPlanShortcut])
 
   // Listen for undo/redo turn events from the application menu
   useEffect(() => {
