@@ -1410,6 +1410,14 @@ declare global {
       simpleMode: {
         toggle: (projectId: string, enabled: boolean) => Promise<void>
       }
+      dependency: {
+        add: (dependentId: string, blockerId: string) => Promise<{ success: boolean; error?: string }>
+        remove: (dependentId: string, blockerId: string) => Promise<boolean>
+        getBlockers: (ticketId: string) => Promise<KanbanTicket[]>
+        getDependents: (ticketId: string) => Promise<KanbanTicket[]>
+        getForProject: (projectId: string) => Promise<Array<{ dependent_id: string; blocker_id: string; created_at: string }>>
+        removeAll: (ticketId: string) => Promise<number>
+      }
       board: {
         export: (projectId: string, projectName: string) => Promise<{ success: boolean; ticketCount: number; path?: string }>
         openImportFile: () => Promise<{

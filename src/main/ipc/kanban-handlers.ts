@@ -85,6 +85,31 @@ export function registerKanbanHandlers(): void {
     return getDatabase().updateProjectSimpleMode(projectId, enabled)
   })
 
+  // Dependency handlers
+  ipcMain.handle('kanban:dependency:add', (_event, dependentId: string, blockerId: string) => {
+    return getDatabase().addTicketDependency(dependentId, blockerId)
+  })
+
+  ipcMain.handle('kanban:dependency:remove', (_event, dependentId: string, blockerId: string) => {
+    return getDatabase().removeTicketDependency(dependentId, blockerId)
+  })
+
+  ipcMain.handle('kanban:dependency:getBlockers', (_event, ticketId: string) => {
+    return getDatabase().getBlockersForTicket(ticketId)
+  })
+
+  ipcMain.handle('kanban:dependency:getDependents', (_event, ticketId: string) => {
+    return getDatabase().getDependentsOfTicket(ticketId)
+  })
+
+  ipcMain.handle('kanban:dependency:getForProject', (_event, projectId: string) => {
+    return getDatabase().getDependenciesForProject(projectId)
+  })
+
+  ipcMain.handle('kanban:dependency:removeAll', (_event, ticketId: string) => {
+    return getDatabase().removeAllDependenciesForTicket(ticketId)
+  })
+
   ipcMain.handle(
     'kanban:board:export',
     async (_event, projectId: string, projectName: string) => {

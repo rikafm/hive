@@ -1923,6 +1923,20 @@ const kanban = {
     toggle: (projectId: string, enabled: boolean) =>
       ipcRenderer.invoke('kanban:simpleMode:toggle', projectId, enabled)
   },
+  dependency: {
+    add: (dependentId: string, blockerId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('kanban:dependency:add', dependentId, blockerId),
+    remove: (dependentId: string, blockerId: string): Promise<boolean> =>
+      ipcRenderer.invoke('kanban:dependency:remove', dependentId, blockerId),
+    getBlockers: (ticketId: string) =>
+      ipcRenderer.invoke('kanban:dependency:getBlockers', ticketId),
+    getDependents: (ticketId: string) =>
+      ipcRenderer.invoke('kanban:dependency:getDependents', ticketId),
+    getForProject: (projectId: string) =>
+      ipcRenderer.invoke('kanban:dependency:getForProject', projectId),
+    removeAll: (ticketId: string): Promise<number> =>
+      ipcRenderer.invoke('kanban:dependency:removeAll', ticketId),
+  },
   board: {
     export: (projectId: string, projectName: string): Promise<{ success: boolean; ticketCount: number; path?: string }> =>
       ipcRenderer.invoke('kanban:board:export', projectId, projectName),
