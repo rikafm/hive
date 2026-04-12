@@ -83,6 +83,11 @@ export interface NormalizedCommandExecutionTool {
   input: Record<string, unknown>
 }
 
+interface ParsedLineRange {
+  start: number
+  end: number
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -115,6 +120,42 @@ function stripMatchingQuotes(value: string): string {
   }
 
   return trimmed
+}
+
+function parseSedPrintScript(script: string): ParsedLineRange[] | null {
+  const clauses = script
+    .split(';')
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0)
+
+  if (clauses.length === 0) return null
+
+  const ranges: ParsedLineRange[] = []
+
+  for (const clause of clauses) {
+    const rangeMatch = /^(\d+),(\d+)p$/.exec(clause)
+    if (rangeMatch) {
+      const start = Number.parseInt(rangeMatch[1] ?? '', 10)
+      const end = Number.parseInt(rangeMatch[2] ?? '', 10)
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start <= 0 || end < start) {
+        return null
+      }
+      ranges.push({ start, end })
+      continue
+    }
+
+    const singleLineMatch = /^(\d+)p$/.exec(clause)
+    if (singleLineMatch) {
+      const line = Number.parseInt(singleLineMatch[1] ?? '', 10)
+      if (!Number.isFinite(line) || line <= 0) return null
+      ranges.push({ start: line, end: line })
+      continue
+    }
+
+    return null
+  }
+
+  return ranges
 }
 
 function mapCommandActionToTool(action: CommandAction): NormalizedCommandExecutionTool | null {
@@ -168,6 +209,25 @@ function tryParseSedRead(command: string): NormalizedCommandExecutionTool | null
   }
 }
 
+function tryParseNumberedRead(command: string): NormalizedCommandExecutionTool | null {
+  const match =
+    /^nl\s+-ba\s+(.+?)\s*\|\s*sed\s+-n\s+(?:(['"])([\s\S]*?)\2|([^'"\s][\s\S]*))$/.exec(command)
+  if (!match) return null
+
+  const rawPath = stripMatchingQuotes(match[1] ?? '')
+  const rawScript = stripMatchingQuotes(match[3] ?? match[4] ?? '')
+  const lineRanges = parseSedPrintScript(rawScript)
+  if (!rawPath || !lineRanges) return null
+
+  return {
+    toolName: 'Read',
+    input: {
+      file_path: rawPath,
+      line_ranges: lineRanges
+    }
+  }
+}
+
 function tryParseRgFiles(command: string): NormalizedCommandExecutionTool | null {
   const match = /^rg\s+--files(?:\s+(.+))?$/.exec(command)
   if (!match) return null
@@ -203,7 +263,9 @@ export function normalizeCommandExecutionTool(options: {
 }): NormalizedCommandExecutionTool {
   const inputRecord = asRecord(options.input) ?? {}
   const command = extractNormalizedCommand(options.command, inputRecord)
-  const parsedTool = command ? tryParseSedRead(command) ?? tryParseRgFiles(command) : null
+  const parsedTool = command
+    ? tryParseNumberedRead(command) ?? tryParseSedRead(command) ?? tryParseRgFiles(command)
+    : null
   const actions = Array.isArray(options.commandActions)
     ? options.commandActions
         .map(mapCommandActionToTool)

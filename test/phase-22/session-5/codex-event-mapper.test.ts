@@ -444,6 +444,40 @@ describe('mapCodexEventToStreamEvents', () => {
         limit: 30
       })
     })
+
+    it('maps numbered nl|sed reads to Read tool cards with exact ranges', () => {
+      const event = makeEvent({
+        method: 'item.started',
+        payload: {
+          item: {
+            id: 'item-read-2',
+            type: 'commandExecution',
+            command:
+              "nl -ba src/renderer/src/components/sessions/ToolCard.tsx | sed -n '40,120p;220,250p;570,620p;875,915p'",
+            cwd: '/project',
+            processId: null,
+            source: 'agent',
+            status: 'running',
+            aggregatedOutput: null,
+            exitCode: null,
+            durationMs: null
+          }
+        }
+      })
+
+      const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+      const part = (result[0].data as any).part
+      expect(part.tool).toBe('Read')
+      expect(part.state.input).toEqual({
+        file_path: 'src/renderer/src/components/sessions/ToolCard.tsx',
+        line_ranges: [
+          { start: 40, end: 120 },
+          { start: 220, end: 250 },
+          { start: 570, end: 620 },
+          { start: 875, end: 915 }
+        ]
+      })
+    })
   })
 
   // ── Item updated ────────────────────────────────────────────

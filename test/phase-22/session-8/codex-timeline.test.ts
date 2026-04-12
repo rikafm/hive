@@ -325,6 +325,77 @@ describe('codex timeline derivation', () => {
     ).toBe(true)
   })
 
+  it('re-normalizes persisted numbered nl|sed commandExecution activities to Read with exact ranges', () => {
+    const messages: SessionMessage[] = [
+      {
+        id: 'db-user-1',
+        session_id: 'session-1',
+        role: 'user',
+        content: 'Inspect specific file sections',
+        opencode_message_id: 'turn-1:user',
+        opencode_message_json: null,
+        opencode_parts_json: JSON.stringify([{ type: 'text', text: 'Inspect specific file sections' }]),
+        opencode_timeline_json: null,
+        created_at: '2026-03-14T10:00:00.000Z'
+      },
+      {
+        id: 'db-assistant-1',
+        session_id: 'session-1',
+        role: 'assistant',
+        content: 'Done',
+        opencode_message_id: 'turn-1:assistant',
+        opencode_message_json: null,
+        opencode_parts_json: JSON.stringify([{ type: 'text', text: 'Done' }]),
+        opencode_timeline_json: null,
+        created_at: '2026-03-14T10:00:10.000Z'
+      }
+    ]
+
+    const activities: SessionActivity[] = [
+      {
+        id: 'activity-bash-read-ranges',
+        session_id: 'session-1',
+        agent_session_id: 'thread-1',
+        thread_id: 'thread-1',
+        turn_id: 'turn-1',
+        item_id: 'tool-read-ranges-1',
+        request_id: null,
+        kind: 'tool.completed',
+        tone: 'tool',
+        summary: 'Bash',
+        payload_json: JSON.stringify({
+          item: {
+            type: 'commandExecution',
+            command:
+              "nl -ba src/renderer/src/components/sessions/ToolCard.tsx | sed -n '40,120p;220,250p;570,620p;875,915p'",
+            aggregatedOutput: 'ok'
+          }
+        }),
+        sequence: null,
+        created_at: '2026-03-14T10:00:05.000Z'
+      }
+    ]
+
+    const timeline = deriveCodexTimelineMessages(messages, activities)
+    const toolRow = timeline.find((message) => message.id === 'turn-1:tool:tool-read-ranges-1')
+
+    expect(
+      toolRow?.parts?.some(
+        (part) =>
+          part.type === 'tool_use' &&
+          part.toolUse?.name === 'Read' &&
+          part.toolUse?.input.file_path === 'src/renderer/src/components/sessions/ToolCard.tsx' &&
+          JSON.stringify(part.toolUse?.input.line_ranges) ===
+            JSON.stringify([
+              { start: 40, end: 120 },
+              { start: 220, end: 250 },
+              { start: 570, end: 620 },
+              { start: 875, end: 915 }
+            ])
+      )
+    ).toBe(true)
+  })
+
   it('projects persisted task activities into a single subtask row with the latest status', () => {
     const messages: SessionMessage[] = [
       {
