@@ -63,6 +63,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const dropIndexRef = useRef<number | null>(null)
   const [worktreePickerTicket, setWorktreePickerTicket] = useState<KanbanTicket | null>(null)
+  const [saveConfigTicket, setSaveConfigTicket] = useState<KanbanTicket | null>(null)
   const [pendingBackwardDrag, setPendingBackwardDrag] = useState<{
     ticketId: string
     targetIndex: number
@@ -246,7 +247,28 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
         if (isInProgressColumn && !isSimpleMode) {
           const draggedTicket = findTicket(ticketId)
           if (draggedTicket) {
-            setWorktreePickerTicket(draggedTicket)
+            // Check if ticket has unresolved blockers
+            const blockerIds = store.dependencyMap.get(ticketId)
+            let isBlocked = false
+            if (blockerIds?.size) {
+              for (const [, projTickets] of store.tickets) {
+                for (const t of projTickets) {
+                  if (blockerIds.has(t.id) && t.column !== 'done') {
+                    isBlocked = true
+                    break
+                  }
+                }
+                if (isBlocked) break
+              }
+            }
+
+            if (isBlocked) {
+              // Blocked ticket — open picker in save-config-only mode
+              setSaveConfigTicket(draggedTicket)
+            } else {
+              // Normal unblocked ticket — open regular picker
+              setWorktreePickerTicket(draggedTicket)
+            }
             return // Don't move yet — modal handles the move
           }
         }
@@ -596,6 +618,17 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
             if (!open) setWorktreePickerTicket(null)
           }}
           connectionId={connectionId}
+        />
+      )}
+
+      {/* Worktree picker modal — save-config-only for blocked tickets */}
+      {saveConfigTicket && (
+        <WorktreePickerModal
+          ticket={saveConfigTicket}
+          projectId={saveConfigTicket.project_id}
+          open={!!saveConfigTicket}
+          onOpenChange={(open) => { if (!open) setSaveConfigTicket(null) }}
+          saveConfigOnly
         />
       )}
 

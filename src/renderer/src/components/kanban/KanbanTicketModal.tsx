@@ -21,7 +21,9 @@ import {
   Github,
   FileUp,
   File as FileIcon,
-  Upload
+  Upload,
+  Lock,
+  Plus
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -761,6 +763,36 @@ function EditModeContent({
   const { pinAndActivate: pinAndActivateSession, lifecycleLoading } = usePinAndActivateSession(onClose)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
+  // ── Dependency selectors ──────────────────────────────────────────
+  const blockerTickets = useKanbanStore(
+    useCallback((state) => {
+      const blockerIds = state.dependencyMap.get(ticket.id)
+      if (!blockerIds?.size) return [] as KanbanTicket[]
+      const result: KanbanTicket[] = []
+      for (const [, projectTickets] of state.tickets) {
+        for (const t of projectTickets) {
+          if (blockerIds.has(t.id)) result.push(t)
+        }
+      }
+      return result
+    }, [ticket.id])
+  )
+
+  const dependentTickets = useKanbanStore(
+    useCallback((state) => {
+      const result: KanbanTicket[] = []
+      for (const [depId, blockerIds] of state.dependencyMap) {
+        if (blockerIds.has(ticket.id)) {
+          for (const [, projectTickets] of state.tickets) {
+            const t = projectTickets.find(pt => pt.id === depId)
+            if (t) result.push(t)
+          }
+        }
+      }
+      return result
+    }, [ticket.id])
+  )
+
   // Load live PR state so merge-button guard works (hide if already merged/closed)
   useEffect(() => {
     if (lifecycle.hasAttachedPR) lifecycle.loadPRState()
@@ -914,6 +946,76 @@ function EditModeContent({
           onChange={setAttachments}
           testIdPrefix="ticket-edit"
         />
+
+        {/* Dependencies section */}
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-foreground">
+            Dependencies
+          </label>
+          <div className="space-y-2">
+            {/* Blockers */}
+            {blockerTickets.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Blocked by:</span>
+                {blockerTickets.map(blocker => (
+                  <div key={blocker.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded-md bg-muted/30">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {blocker.column === 'done' ? (
+                        <span className="text-green-500 text-xs">&#10003;</span>
+                      ) : (
+                        <Lock className="h-3 w-3 text-amber-500" />
+                      )}
+                      <span className="text-sm truncate">{blocker.title}</span>
+                    </div>
+                    <button
+                      onClick={() => useKanbanStore.getState().removeDependency(ticket.id, blocker.id)}
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Dependents */}
+            {dependentTickets.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Depended on by:</span>
+                {dependentTickets.map(dep => (
+                  <div key={dep.id} className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted/30">
+                    <span className="text-sm truncate">{dep.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add dependency button */}
+            <button
+              type="button"
+              onClick={() => {
+                useKanbanStore.getState().enterDependencyMode(ticket.id)
+                onClose() // Close modal
+              }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              Add dependency...
+            </button>
+
+            {/* Auto-launch indicator */}
+            {ticket.pending_launch_config && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-500">
+                <Zap className="h-3 w-3" />
+                Auto-launch queued: {(() => {
+                  try {
+                    return JSON.parse(ticket.pending_launch_config).mode
+                  } catch { return 'unknown' }
+                })()} mode
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <DialogFooter className="flex items-center justify-between sm:justify-between flex-wrap gap-y-2">
