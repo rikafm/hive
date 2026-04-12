@@ -8,6 +8,7 @@ import type { Attachment } from '@/components/sessions/AttachmentPreview'
 import { cn } from '@/lib/utils'
 import { MAX_ATTACHMENTS } from '@/lib/file-attachment-utils'
 import { toast } from '@/lib/toast'
+import { Tip } from '@/components/ui/Tip'
 
 type FollowUpMode = 'build' | 'plan' | 'super-plan'
 
@@ -106,24 +107,26 @@ export function FollowupInput({
         <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Followup
         </label>
-        <button
-          data-testid={`${testIdPrefix}-mode-toggle`}
-          data-mode={followUpMode}
-          type="button"
-          onClick={onToggleMode}
-          className={cn(
-            'flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors',
-            'border select-none',
-            followUpMode === 'build'
-              ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20'
-              : followUpMode === 'plan'
-                ? 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
-                : 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20'
-          )}
-        >
-          <ModeIcon className="h-3 w-3" />
-          <span>{modeLabel}</span>
-        </button>
+        <Tip tipId="super-plan-shortcut" enabled={followUpMode === 'super-plan'}>
+          <button
+            data-testid={`${testIdPrefix}-mode-toggle`}
+            data-mode={followUpMode}
+            type="button"
+            onClick={onToggleMode}
+            className={cn(
+              'flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors',
+              'border select-none',
+              followUpMode === 'build'
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 hover:bg-blue-500/20'
+                : followUpMode === 'plan'
+                  ? 'bg-violet-500/10 border-violet-500/30 text-violet-500 hover:bg-violet-500/20'
+                  : 'bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20'
+            )}
+          >
+            <ModeIcon className="h-3 w-3" />
+            <span>{modeLabel}</span>
+          </button>
+        </Tip>
       </div>
 
       {/* Attachment previews */}

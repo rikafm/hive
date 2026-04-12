@@ -186,7 +186,7 @@ export function useKeyboardShortcuts(): void {
       for (const { binding, handler, allowInInput } of shortcuts) {
         if (!binding) continue
         if (isInputFocused && !allowInInput) continue
-        if (isTerminalFocused && binding.modifiers.length === 0) continue
+        if (isTerminalFocused && (binding.modifiers.length === 0 || binding.key?.toLowerCase() === 'tab')) continue
 
         if (eventMatchesBinding(event, binding)) {
           event.preventDefault()
@@ -358,6 +358,16 @@ function getShortcutHandlers(
         const { activeSessionId } = useSessionStore.getState()
         if (!activeSessionId) return
         useSessionStore.getState().toggleSessionMode(activeSessionId)
+      }
+    },
+    {
+      id: 'session:super-plan-toggle',
+      binding: getEffectiveBinding('session:super-plan-toggle'),
+      allowInInput: true,
+      handler: () => {
+        const { activeSessionId } = useSessionStore.getState()
+        if (!activeSessionId) return
+        useSessionStore.getState().toggleSuperPlanShortcut(activeSessionId)
       }
     },
     {

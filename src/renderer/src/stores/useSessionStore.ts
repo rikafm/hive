@@ -122,6 +122,7 @@ interface SessionState {
   getSuperArmed: (sessionId: string) => boolean
   toggleSessionMode: (sessionId: string) => Promise<void>
   toggleSuperMode: (sessionId: string) => Promise<void>
+  toggleSuperPlanShortcut: (sessionId: string) => Promise<void>
   setSessionMode: (sessionId: string, mode: SessionMode) => Promise<void>
   setSessionModel: (
     sessionId: string,
@@ -1141,6 +1142,28 @@ export const useSessionStore = create<SessionState>()(
         await get().applyModeDefaultModel(sessionId, newMode)
 
         // Notify Kanban board of mode change
+        notifyKanbanSessionSync(sessionId, { type: 'mode_change', sessionMode: newMode })
+      },
+
+      // Toggle super-plan shortcut: super-plan → plan, everything else → super-plan
+      // Unlike toggleSuperMode, this does NOT mutate superArmedBySession
+      toggleSuperPlanShortcut: async (sessionId: string) => {
+        const currentMode = get().modeBySession.get(sessionId) || 'build'
+        const newMode: SessionMode = currentMode === 'super-plan' ? 'plan' : 'super-plan'
+
+        set((state) => {
+          const newModeMap = new Map(state.modeBySession)
+          newModeMap.set(sessionId, newMode)
+          return { modeBySession: newModeMap }
+        })
+
+        try {
+          await window.db.session.update(sessionId, { mode: newMode })
+        } catch (error) {
+          console.error('Failed to persist session mode:', error)
+        }
+
+        await get().applyModeDefaultModel(sessionId, newMode)
         notifyKanbanSessionSync(sessionId, { type: 'mode_change', sessionMode: newMode })
       },
 

@@ -167,6 +167,7 @@ describe('Shortcut Registration', () => {
       'session:new',
       'session:close',
       'session:mode-toggle',
+      'session:super-plan-toggle',
       'nav:command-palette',
       'nav:session-history',
       'nav:new-worktree',
