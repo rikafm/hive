@@ -46,5 +46,12 @@ export const TIP_DEFINITIONS: Record<string, TipDefinition> = {
     priority: 5,
     side: 'bottom',
     align: 'end'
+  },
+  'super-plan-shortcut': {
+    id: 'super-plan-shortcut',
+    description: 'Press Shift+Tab to toggle Super Plan mode.',
+    trigger: 'action',
+    priority: 6,
+    side: 'top'
   }
 }

@@ -1104,21 +1104,29 @@ function PlanReviewModeContent({
     setFollowUpMode((prev) => prev === 'build' ? 'plan' : 'build')
   }, [])
 
-  // Tab key toggles mode
+  const toggleSuperMode = useCallback(() => {
+    setFollowUpMode((prev) => prev === 'super-plan' ? 'plan' : 'super-plan')
+  }, [])
+
+  // Tab key toggles mode, Shift+Tab toggles super-plan
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const modal = document.querySelector('[data-testid="kanban-ticket-modal"]')
         if (modal?.contains(document.activeElement)) {
           e.preventDefault()
           e.stopImmediatePropagation()
-          toggleMode()
+          if (e.shiftKey) {
+            toggleSuperMode()
+          } else {
+            toggleMode()
+          }
         }
       }
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [toggleMode])
+  }, [toggleMode, toggleSuperMode])
 
   // ── Send followup (reject pending plan + iterate) ────────────────
   const handleSendFollowup = useCallback(async () => {
@@ -1804,22 +1812,30 @@ function ReviewModeContent({
     setFollowUpMode((prev) => prev === 'build' ? 'plan' : 'build')
   }, [])
 
-  // Tab key toggles mode
+  const toggleSuperMode = useCallback(() => {
+    setFollowUpMode((prev) => prev === 'super-plan' ? 'plan' : 'super-plan')
+  }, [])
+
+  // Tab key toggles mode, Shift+Tab toggles super-plan
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         // Only intercept when the modal is focused
         const modal = document.querySelector('[data-testid="kanban-ticket-modal"]')
         if (modal?.contains(document.activeElement)) {
           e.preventDefault()
           e.stopImmediatePropagation()
-          toggleMode()
+          if (e.shiftKey) {
+            toggleSuperMode()
+          } else {
+            toggleMode()
+          }
         }
       }
     }
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [toggleMode])
+  }, [toggleMode, toggleSuperMode])
 
   // ── Send followup ─────────────────────────────────────────────────
   const handleSendFollowup = useCallback(async () => {
@@ -2224,6 +2240,30 @@ function ErrorModeContent({
   const toggleMode = useCallback(() => {
     setFollowUpMode((prev) => prev === 'build' ? 'plan' : 'build')
   }, [])
+
+  const toggleSuperMode = useCallback(() => {
+    setFollowUpMode((prev) => prev === 'super-plan' ? 'plan' : 'super-plan')
+  }, [])
+
+  // Tab key toggles mode, Shift+Tab toggles super-plan
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const modal = document.querySelector('[data-testid="kanban-ticket-modal"]')
+        if (modal?.contains(document.activeElement)) {
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          if (e.shiftKey) {
+            toggleSuperMode()
+          } else {
+            toggleMode()
+          }
+        }
+      }
+    }
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [toggleMode, toggleSuperMode])
 
   // ── Send followup for error retry ─────────────────────────────────
   const handleSendFollowup = useCallback(async () => {
