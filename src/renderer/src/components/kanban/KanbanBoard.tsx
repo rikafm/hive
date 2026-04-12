@@ -182,10 +182,13 @@ export function KanbanBoard({ projectId, projectPath, connectionId, isPinnedMode
 
       let sx: number, tx: number, d: string
 
-      if (Math.abs(sourceCx - targetCx) < 50) {
+      // Treat tickets as same-column when their centers are within half a card-width
+      const SAME_COLUMN_THRESHOLD_PX = 50
+      if (Math.abs(sourceCx - targetCx) < SAME_COLUMN_THRESHOLD_PX) {
         // Same-column case: both endpoints exit from the left edge, arc leftward
         sx = sourceRect.left - boardRect.left
         tx = targetRect.left - boardRect.left
+        // Arc depth: at least 40px, scaling to 40% of vertical distance
         const offset = Math.max(40, Math.abs(ty - sy) * 0.4)
         d = `M ${sx},${sy} C ${sx - offset},${sy} ${tx - offset},${ty} ${tx},${ty}`
       } else {
