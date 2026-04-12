@@ -5,7 +5,7 @@ import { asObject, asString } from './codex-utils'
 import type { ItemStartedNotification } from '@shared/codex-schemas/v2/ItemStartedNotification'
 import type { ItemCompletedNotification } from '@shared/codex-schemas/v2/ItemCompletedNotification'
 import type { ThreadNameUpdatedNotification } from '@shared/codex-schemas/v2/ThreadNameUpdatedNotification'
-import type { ThreadItem } from '@shared/codex-schemas/v2/ThreadItem'
+
 
 function stringifyPayload(payload: unknown): string | null {
   if (payload === undefined) return null
@@ -110,7 +110,7 @@ export function mapCodexManagerEventToActivity(
         typedItem?.type === 'commandExecution' ? typedItem.status :
         typedItem?.type === 'fileChange' ? typedItem.status :
         undefined
-      const status = (typedStatus as string | undefined) ?? asString(legacyItem?.status) ?? asString(payload?.status)
+      const status = typedStatus ?? asString(legacyItem?.status) ?? asString(payload?.status)
       return buildActivity(
         sessionId,
         agentSessionId,
