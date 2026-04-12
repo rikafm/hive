@@ -4787,10 +4787,10 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     const handler = (e: KeyboardEvent): void => {
       if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return
 
-      // Don't intercept Tab inside the ticket creation modal — it needs
-      // natural tab navigation between title / description fields.
+      // Don't intercept plain Tab inside the ticket creation modal — it needs
+      // natural tab navigation. Shift+Tab still toggles super-plan mode.
       const createModal = document.querySelector('[data-testid="ticket-create-modal"]')
-      if (createModal?.contains(document.activeElement)) return
+      if (createModal?.contains(document.activeElement) && !e.shiftKey) return
 
       // Don't intercept Tab when the xterm terminal is focused — it needs
       // to reach the shell for tab completion.

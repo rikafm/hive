@@ -280,28 +280,42 @@ export function WorktreePickerModal({
     }
   }, [mode])
 
-  // ── Handle Tab key: toggle mode + focus prompt textarea ────────
+  // ── Handle Shift+Tab super-plan shortcut ─────────────────────
+  const toggleSuperShortcut = useCallback(() => {
+    setMode((prev) => {
+      const next: PickerMode = prev === 'super-plan' ? 'plan' : 'super-plan'
+      setPromptText((current) => swapModePrefix(current, prev, next))
+      return next
+    })
+  }, [])
+
+  // ── Handle Tab / Shift+Tab keys ─────────────────────────────────
   // Must use window-level capture-phase listener to beat SessionView's
   // global Tab handler which also uses capture and stops propagation.
+  // Tab = toggle build↔plan, Shift+Tab = toggle ±super-plan.
   useEffect(() => {
     if (!open || preAssignOnly) return
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (branchPopoverOpen) return  // Don't toggle mode while picking a branch
-        e.preventDefault()
-        e.stopImmediatePropagation()
+      if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return
+      if (branchPopoverOpen) return  // Don't toggle mode while picking a branch
+      e.preventDefault()
+      e.stopImmediatePropagation()
+
+      if (e.shiftKey) {
+        toggleSuperShortcut()
+      } else {
         toggleMode()
-        // Also focus the prompt textarea if it isn't already focused
-        if (document.activeElement !== promptRef.current) {
-          promptRef.current?.focus()
-        }
+      }
+      // Also focus the prompt textarea if it isn't already focused
+      if (document.activeElement !== promptRef.current) {
+        promptRef.current?.focus()
       }
     }
     window.addEventListener('keydown', handler, true) // capture phase
     return () => {
       window.removeEventListener('keydown', handler, true)
     }
-  }, [open, toggleMode, branchPopoverOpen, preAssignOnly])
+  }, [open, toggleMode, toggleSuperShortcut, branchPopoverOpen, preAssignOnly])
 
   // Keep React keydown for test compatibility (jsdom doesn't have capture-phase issues)
   const handleKeyDown = useCallback(
@@ -309,14 +323,18 @@ export function WorktreePickerModal({
       if (e.key === 'Tab' && !preAssignOnly) {
         if (branchPopoverOpen) return
         e.preventDefault()
-        toggleMode()
+        if (e.shiftKey) {
+          toggleSuperShortcut()
+        } else {
+          toggleMode()
+        }
         // Also focus the prompt textarea if it isn't already focused
         if (document.activeElement !== promptRef.current) {
           promptRef.current?.focus()
         }
       }
     },
-    [toggleMode, branchPopoverOpen, preAssignOnly]
+    [toggleMode, toggleSuperShortcut, branchPopoverOpen, preAssignOnly]
   )
 
   // ── Handle worktree selection ───────────────────────────────────
