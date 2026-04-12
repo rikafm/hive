@@ -764,18 +764,21 @@ function EditModeContent({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // ── Dependency selectors ──────────────────────────────────────────
+  // Stable empty array to avoid referential-inequality loops in Zustand selectors
+  const EMPTY_TICKETS: readonly KanbanTicket[] = useMemo(() => [], [])
+
   const blockerTickets = useKanbanStore(
     useCallback((state) => {
       const blockerIds = state.dependencyMap.get(ticket.id)
-      if (!blockerIds?.size) return [] as KanbanTicket[]
+      if (!blockerIds?.size) return EMPTY_TICKETS as KanbanTicket[]
       const result: KanbanTicket[] = []
       for (const [, projectTickets] of state.tickets) {
         for (const t of projectTickets) {
           if (blockerIds.has(t.id)) result.push(t)
         }
       }
-      return result
-    }, [ticket.id])
+      return result.length > 0 ? result : EMPTY_TICKETS as KanbanTicket[]
+    }, [ticket.id, EMPTY_TICKETS])
   )
 
   const dependentTickets = useKanbanStore(
@@ -789,8 +792,8 @@ function EditModeContent({
           }
         }
       }
-      return result
-    }, [ticket.id])
+      return result.length > 0 ? result : EMPTY_TICKETS as KanbanTicket[]
+    }, [ticket.id, EMPTY_TICKETS])
   )
 
   // Load live PR state so merge-button guard works (hide if already merged/closed)
