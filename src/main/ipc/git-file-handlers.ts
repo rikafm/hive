@@ -1220,7 +1220,8 @@ export function registerGitFileHandlers(window: BrowserWindow): void {
           commitSummary: rangeDiff.commitSummary,
           diffSummary: rangeDiff.diffSummary,
           diffPatch: rangeDiff.diffPatch,
-          provider: provider as import('../services/agent-sdk-types').AgentSdkId
+          provider: provider as import('../services/agent-sdk-types').AgentSdkId,
+          cwd: worktreePath
         })
 
         return { success: true, title: result.title, body: result.body }

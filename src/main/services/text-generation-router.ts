@@ -16,6 +16,12 @@ const TIMEOUT_MS = 30_000
 const MAX_RETRIES = 1
 const MAX_OUTPUT_SIZE = 1024 * 1024 // 1 MB
 
+export interface GenerateTextOptions {
+  modelOverride?: string
+  outputSchema?: string
+  cwd?: string
+}
+
 let cachedSdks: AgentSdkDetection | null = null
 let cacheTimestamp = 0
 const SDK_CACHE_TTL_MS = 60_000
@@ -51,9 +57,9 @@ export async function generateText(
   prompt: string,
   systemPrompt: string,
   provider: AgentSdkId,
-  modelOverride?: string,
-  outputSchema?: string
+  options: GenerateTextOptions = {}
 ): Promise<string | null> {
+  const { modelOverride, outputSchema, cwd } = options
   const resolvedProvider = resolveProvider(provider)
   if (!resolvedProvider) {
     throw new Error(
@@ -73,14 +79,16 @@ export async function generateText(
         prompt,
         systemPrompt,
         modelOverride,
-        outputSchema
+        outputSchema,
+        cwd
       )
       if (result !== null) {
         log.info('Text generation succeeded', {
           requestedProvider: provider,
           resolvedProvider,
           attempt,
-          usedStructuredOutput: Boolean(outputSchema)
+          usedStructuredOutput: Boolean(outputSchema),
+          cwd
         })
         return result
       }
@@ -88,7 +96,8 @@ export async function generateText(
       log.warn('Text generation returned empty result', {
         requestedProvider: provider,
         resolvedProvider,
-        attempt
+        attempt,
+        cwd
       })
     } catch (err: unknown) {
       lastError = err instanceof Error ? err : new Error(String(err))
@@ -96,14 +105,16 @@ export async function generateText(
         requestedProvider: provider,
         resolvedProvider,
         attempt,
-        error: lastError.message
+        error: lastError.message,
+        cwd
       })
     }
   }
 
   log.warn('Text generation: all attempts exhausted', {
     requestedProvider: provider,
-    resolvedProvider
+    resolvedProvider,
+    cwd
   })
   throw lastError ?? new Error('Text generation failed: all attempts returned empty results')
 }
@@ -140,15 +151,16 @@ function generateWithProvider(
   prompt: string,
   systemPrompt: string,
   modelOverride?: string,
-  outputSchema?: string
+  outputSchema?: string,
+  cwd?: string
 ): Promise<string | null> {
   switch (provider) {
     case 'claude-code':
-      return generateWithClaude(prompt, systemPrompt, modelOverride)
+      return generateWithClaude(prompt, systemPrompt, modelOverride, cwd)
     case 'codex':
-      return generateWithCodex(prompt, systemPrompt, modelOverride, outputSchema)
+      return generateWithCodex(prompt, systemPrompt, modelOverride, outputSchema, cwd)
     case 'opencode':
-      return generateWithOpenCode(prompt, systemPrompt, modelOverride)
+      return generateWithOpenCode(prompt, systemPrompt, modelOverride, cwd)
     case 'terminal':
       return Promise.resolve(null)
   }
@@ -157,7 +169,12 @@ function generateWithProvider(
 /**
  * Generate text using the Claude Agent SDK (haiku model).
  */
-async function generateWithClaude(prompt: string, systemPrompt: string, modelOverride?: string): Promise<string | null> {
+async function generateWithClaude(
+  prompt: string,
+  systemPrompt: string,
+  modelOverride?: string,
+  cwd?: string
+): Promise<string | null> {
   const sdk = await loadClaudeSDK()
 
   const abortController = new AbortController()
@@ -168,7 +185,7 @@ async function generateWithClaude(prompt: string, systemPrompt: string, modelOve
     const query = sdk.query({
       prompt,
       options: {
-        cwd: homedir(),
+        cwd: cwd ?? homedir(),
         model: modelOverride ?? 'haiku',
         maxTurns: 2,
         abortController,
@@ -245,7 +262,8 @@ async function generateWithCodex(
   prompt: string,
   systemPrompt: string,
   modelOverride?: string,
-  outputSchema?: string
+  outputSchema?: string,
+  cwd?: string
 ): Promise<string | null> {
   const outputFile = join(tmpdir(), `hive-codex-${randomUUID()}.txt`)
   const schemaFile = outputSchema
@@ -275,7 +293,8 @@ async function generateWithCodex(
     await spawnWithStdin(
       'codex',
       args,
-      fullPrompt
+      fullPrompt,
+      cwd
     )
     const output = await readFile(outputFile, 'utf-8')
     return output.trim() || null
@@ -303,7 +322,8 @@ async function generateWithCodex(
 async function generateWithOpenCode(
   prompt: string,
   systemPrompt: string,
-  modelOverride?: string
+  modelOverride?: string,
+  cwd?: string
 ): Promise<string | null> {
   const model = modelOverride ?? 'claude-haiku'
   const fullPrompt = `${systemPrompt}\n\n${prompt}`
@@ -311,7 +331,8 @@ async function generateWithOpenCode(
   const stdout = await spawnWithStdin(
     'opencode',
     ['run', '--format', 'json', '--model', model],
-    fullPrompt
+    fullPrompt,
+    cwd
   )
 
   // Parse newline-delimited JSON events, collecting text from "text" type events
@@ -337,11 +358,12 @@ async function generateWithOpenCode(
  * Spawn a CLI process, pipe input to stdin, and collect stdout.
  * Rejects on non-zero exit, timeout, or spawn error.
  */
-function spawnWithStdin(command: string, args: string[], input: string): Promise<string> {
+function spawnWithStdin(command: string, args: string[], input: string, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env
+      env: process.env,
+      cwd
     })
 
     let stdout = ''

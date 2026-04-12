@@ -34,6 +34,7 @@ export interface GeneratePRContentOptions {
   diffSummary: string
   diffPatch: string
   provider: AgentSdkId
+  cwd: string
 }
 
 export interface PRContent {
@@ -51,7 +52,7 @@ export interface PRContent {
  * Returns null if generation fails or the response cannot be parsed.
  */
 export async function generatePRContent(options: GeneratePRContentOptions): Promise<PRContent> {
-  const { baseBranch, headBranch, commitSummary, diffSummary, diffPatch, provider } = options
+  const { baseBranch, headBranch, commitSummary, diffSummary, diffPatch, provider, cwd } = options
 
   const truncatedCommitSummary = truncate(commitSummary, MAX_COMMIT_SUMMARY_LENGTH)
   const truncatedDiffSummary = truncate(diffSummary, MAX_DIFF_SUMMARY_LENGTH)
@@ -69,14 +70,16 @@ ${truncatedDiffSummary}
 Diff patch:
 ${truncatedDiffPatch}`
 
-  log.info('Generating PR content', { baseBranch, headBranch, provider })
+  log.info('Generating PR content', { baseBranch, headBranch, provider, cwd })
 
   const response = await generateText(
     prompt,
     SYSTEM_PROMPT,
     provider,
-    undefined,
-    PR_CONTENT_JSON_SCHEMA
+    {
+      cwd,
+      outputSchema: PR_CONTENT_JSON_SCHEMA
+    }
   )
   if (!response) {
     throw new Error('AI provider returned an empty response')

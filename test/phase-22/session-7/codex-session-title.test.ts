@@ -68,10 +68,10 @@ describe('generateCodexSessionTitle', () => {
       '../../../src/main/services/codex-session-title'
     )
 
-    await generateCodexSessionTitle('Some message')
+    await generateCodexSessionTitle('Some message', '/tmp/worktree')
 
     expect(mockSpawnCLI).toHaveBeenCalledOnce()
-    const [command, args] = mockSpawnCLI.mock.calls[0]
+    const [command, args, , timeoutMs, cwd] = mockSpawnCLI.mock.calls[0]
     expect(command).toBe('codex')
     expect(args).toContain('exec')
     expect(args).toContain('--ephemeral')
@@ -83,6 +83,8 @@ describe('generateCodexSessionTitle', () => {
     expect(args).toContain('model_reasoning_effort="low"')
     expect(args).toContain('--output-schema')
     expect(args).toContain('--output-last-message')
+    expect(timeoutMs).toBeDefined()
+    expect(cwd).toBe('/tmp/worktree')
   })
 
   it('writes schema JSON to temp file', async () => {

@@ -68,19 +68,23 @@ describe('text-generation-router codex structured output', () => {
       'Prompt',
       'System',
       'codex',
-      undefined,
-      '{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"}}}'
+      {
+        cwd: '/tmp/worktree',
+        outputSchema:
+          '{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"}}}'
+      }
     )
 
     expect(result).toContain('"title":"Refine PR flow"')
     expect(mockSpawn).toHaveBeenCalledOnce()
 
-    const [, args] = mockSpawn.mock.calls[0] as [string, string[]]
+    const [, args, options] = mockSpawn.mock.calls[0] as [string, string[], { cwd?: string }]
     expect(args).toContain('exec')
     expect(args).toContain('--output-schema')
     expect(args).toContain('--output-last-message')
     expect(args).toContain('--config')
     expect(args).toContain('model_reasoning_effort="low"')
+    expect(options.cwd).toBe('/tmp/worktree')
     expect(mockWriteFile).toHaveBeenCalledTimes(2)
     expect(mockUnlink).toHaveBeenCalledTimes(2)
   })

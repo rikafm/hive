@@ -18,7 +18,7 @@ const log = createLogger({ component: 'CodexSessionTitle' })
 
 export async function generateCodexSessionTitle(
   message: string,
-  _worktreePath?: string
+  worktreePath?: string
 ): Promise<string | null> {
   const truncatedMessage =
     message.length > MAX_MESSAGE_LENGTH ? message.slice(0, MAX_MESSAGE_LENGTH) + '...' : message
@@ -50,7 +50,8 @@ export async function generateCodexSessionTitle(
         '-'
       ],
       prompt,
-      TITLE_TIMEOUT_MS
+      TITLE_TIMEOUT_MS,
+      worktreePath
     )
 
     const content = await readFile(outputFile, 'utf-8')

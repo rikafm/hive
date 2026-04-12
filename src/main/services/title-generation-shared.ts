@@ -128,13 +128,15 @@ export function spawnCLI(
   command: string,
   args: string[],
   input: string,
-  timeoutMs: number = TITLE_TIMEOUT_MS
+  timeoutMs: number = TITLE_TIMEOUT_MS,
+  cwd?: string
 ): Promise<string> {
-  log.info('spawnCLI: starting', { command, argCount: args.length, inputLength: input.length, timeoutMs })
+  log.info('spawnCLI: starting', { command, argCount: args.length, inputLength: input.length, timeoutMs, cwd })
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env
+      env: process.env,
+      cwd
     })
 
     let stdout = ''
