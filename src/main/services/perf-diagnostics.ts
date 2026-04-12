@@ -6,7 +6,7 @@ import { createLogger } from './logger'
 
 const log = createLogger({ component: 'PerfDiagnostics' })
 
-const PERF_VERSION = 'v5'
+const PERF_VERSION = 'v6'
 const INTERVAL_MS = 30_000
 const MAX_LOG_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_ROTATED_FILES = 2
