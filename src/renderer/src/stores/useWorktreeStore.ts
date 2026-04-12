@@ -161,6 +161,102 @@ function loadPersistedOrder(): Map<string, string[]> {
   return new Map()
 }
 
+function getOrderedProjectWorktrees(
+  worktreesByProject: Map<string, Worktree[]>,
+  worktreeOrderByProject: Map<string, string[]>,
+  projectId: string
+): Worktree[] {
+  const worktrees = worktreesByProject.get(projectId) || []
+
+  // Separate default worktree (always last) from non-default
+  const defaultWorktree = worktrees.find((w) => w.is_default)
+  const nonDefault = worktrees.filter((w) => !w.is_default)
+
+  const customOrder = worktreeOrderByProject.get(projectId)
+  if (!customOrder || customOrder.length === 0) {
+    return defaultWorktree ? [...nonDefault, defaultWorktree] : nonDefault
+  }
+
+  // Sort non-default worktrees by custom order; unordered ones go at end
+  const ordered: Worktree[] = []
+  for (const id of customOrder) {
+    const wt = nonDefault.find((w) => w.id === id)
+    if (wt) ordered.push(wt)
+  }
+
+  // Append any worktrees not in the custom order (newly created)
+  for (const wt of nonDefault) {
+    if (!customOrder.includes(wt.id)) ordered.push(wt)
+  }
+
+  return defaultWorktree ? [...ordered, defaultWorktree] : ordered
+}
+
+function resolveArchiveFallbackWorktreeId(
+  worktreesByProject: Map<string, Worktree[]>,
+  worktreeOrderByProject: Map<string, string[]>,
+  projectId: string,
+  archivedWorktreeId: string
+): string | null {
+  const remaining = getOrderedProjectWorktrees(
+    worktreesByProject,
+    worktreeOrderByProject,
+    projectId
+  ).filter((w) => w.id !== archivedWorktreeId)
+
+  return remaining[0]?.id ?? null
+}
+
+function applyWorktreeSelectionEffects(
+  previousWorktreeId: string | null,
+  nextWorktreeId: string | null,
+  options: {
+    clearConnectionSelection?: boolean
+    preserveProjectId?: string | null
+    refreshLanguage?: boolean
+    closePinnedBoard?: boolean
+  } = {}
+): void {
+  if (nextWorktreeId !== previousWorktreeId) {
+    useFileViewerStore.getState().closeAllFiles()
+  }
+
+  if (options.clearConnectionSelection) {
+    clearConnectionSelection()
+  }
+
+  if (options.closePinnedBoard) {
+    const kanbanState = useKanbanStore.getState()
+    if (kanbanState.isPinnedBoardActive) {
+      kanbanState.togglePinnedBoard()
+    }
+  }
+
+  if (options.preserveProjectId) {
+    useProjectStore.setState((state) =>
+      state.selectedProjectId === options.preserveProjectId
+        ? state
+        : { selectedProjectId: options.preserveProjectId }
+    )
+  }
+
+  if (!nextWorktreeId) return
+
+  void useWorktreeStore.getState().touchWorktree(nextWorktreeId)
+
+  if (options.refreshLanguage) {
+    const worktrees = Array.from(useWorktreeStore.getState().worktreesByProject.values()).flat()
+    const worktree = worktrees.find((w) => w.id === nextWorktreeId)
+    if (worktree) {
+      const ps = useProjectStore.getState()
+      const project = ps.projects.find((p) => p.id === worktree.project_id)
+      if (project && !project.language && !project.custom_icon) {
+        void ps.refreshLanguage(project.id, worktree.path)
+      }
+    }
+  }
+}
+
 export const useWorktreeStore = create<WorktreeState>((set, get) => ({
   // Initial state
   worktreesByProject: new Map(),
@@ -392,8 +488,12 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
       const { usePinnedStore } = await import('./usePinnedStore')
       usePinnedStore.getState().removeWorktree(worktreeId)
 
-      // Remove from state
+      // Remove from state and resolve post-archive fallback selection
       const wasSelected = get().selectedWorktreeId === worktreeId
+      const projectId = worktree?.project_id ?? null
+      const previousSelectedWorktreeId = get().selectedWorktreeId
+      let nextSelectedWorktreeId = previousSelectedWorktreeId
+
       set((state) => {
         const newMap = new Map(state.worktreesByProject)
         for (const [projectId, worktrees] of newMap.entries()) {
@@ -402,16 +502,29 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
             newMap.set(projectId, filtered)
           }
         }
+
+        if (wasSelected && projectId) {
+          nextSelectedWorktreeId = resolveArchiveFallbackWorktreeId(
+            newMap,
+            state.worktreeOrderByProject,
+            projectId,
+            worktreeId
+          )
+        } else if (state.selectedWorktreeId === worktreeId) {
+          nextSelectedWorktreeId = null
+        }
+
         return {
           worktreesByProject: newMap,
-          selectedWorktreeId:
-            state.selectedWorktreeId === worktreeId ? null : state.selectedWorktreeId
+          selectedWorktreeId: nextSelectedWorktreeId
         }
       })
 
-      // Close file tabs if the archived worktree was the active one
       if (wasSelected) {
-        useFileViewerStore.getState().closeAllFiles()
+        applyWorktreeSelectionEffects(previousSelectedWorktreeId, nextSelectedWorktreeId, {
+          clearConnectionSelection: true,
+          preserveProjectId: projectId
+        })
       }
 
       return { success: true }
@@ -518,44 +631,21 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
 
   // Select a worktree (with connection deconfliction)
   selectWorktree: (id: string | null) => {
-    if (id !== get().selectedWorktreeId) {
-      useFileViewerStore.getState().closeAllFiles()
-    }
+    const previousWorktreeId = get().selectedWorktreeId
     set({ selectedWorktreeId: id })
-    if (id) {
-      // Touch worktree to update last_accessed_at
-      get().touchWorktree(id)
-      // Deconflict: clear any selected connection synchronously (same tick)
-      clearConnectionSelection()
-      // Close pinned board when navigating to a specific worktree
-      const kanbanState = useKanbanStore.getState()
-      if (kanbanState.isPinnedBoardActive) {
-        kanbanState.togglePinnedBoard()
-      }
-
-      // Auto-detect language from worktree folder when project has none (fire-and-forget)
-      const worktrees = Array.from(get().worktreesByProject.values()).flat()
-      const worktree = worktrees.find((w) => w.id === id)
-      if (worktree) {
-        const ps = useProjectStore.getState()
-        const project = ps.projects.find((p) => p.id === worktree.project_id)
-        if (project && !project.language && !project.custom_icon) {
-          ps.refreshLanguage(project.id, worktree.path)
-        }
-      }
-    }
+    applyWorktreeSelectionEffects(previousWorktreeId, id, {
+      clearConnectionSelection: Boolean(id),
+      closePinnedBoard: Boolean(id),
+      refreshLanguage: Boolean(id)
+    })
   },
 
   // Select a worktree without triggering connection deconfliction
   // Used by connection store to avoid circular deconfliction
   selectWorktreeOnly: (id: string | null) => {
-    if (id !== get().selectedWorktreeId) {
-      useFileViewerStore.getState().closeAllFiles()
-    }
+    const previousWorktreeId = get().selectedWorktreeId
     set({ selectedWorktreeId: id })
-    if (id) {
-      get().touchWorktree(id)
-    }
+    applyWorktreeSelectionEffects(previousWorktreeId, id)
   },
 
   // Touch worktree (update last_accessed_at)
@@ -593,29 +683,11 @@ export const useWorktreeStore = create<WorktreeState>((set, get) => ({
 
   // Get worktrees for a specific project (applies custom order if available)
   getWorktreesForProject: (projectId: string) => {
-    const worktrees = get().worktreesByProject.get(projectId) || []
-
-    // Separate default worktree (always last) from non-default
-    const defaultWorktree = worktrees.find((w) => w.is_default)
-    const nonDefault = worktrees.filter((w) => !w.is_default)
-
-    const customOrder = get().worktreeOrderByProject.get(projectId)
-    if (!customOrder || customOrder.length === 0) {
-      return defaultWorktree ? [...nonDefault, defaultWorktree] : nonDefault
-    }
-
-    // Sort non-default worktrees by custom order; unordered ones go at end
-    const ordered: typeof nonDefault = []
-    for (const id of customOrder) {
-      const wt = nonDefault.find((w) => w.id === id)
-      if (wt) ordered.push(wt)
-    }
-    // Append any worktrees not in the custom order (newly created)
-    for (const wt of nonDefault) {
-      if (!customOrder.includes(wt.id)) ordered.push(wt)
-    }
-
-    return defaultWorktree ? [...ordered, defaultWorktree] : ordered
+    return getOrderedProjectWorktrees(
+      get().worktreesByProject,
+      get().worktreeOrderByProject,
+      projectId
+    )
   },
 
   // Get the default worktree for a project

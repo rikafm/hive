@@ -11,6 +11,7 @@ interface MockWorktree {
   branch_name: string
   path: string
   status: 'active' | 'archived'
+  is_default?: boolean
   created_at: string
   last_accessed_at: string
 }
@@ -43,7 +44,8 @@ const mockProjectOps = {
   copyToClipboard: vi.fn(),
   readFromClipboard: vi.fn(),
   openPath: vi.fn(),
-  isGitRepository: vi.fn()
+  isGitRepository: vi.fn(),
+  loadLanguageIcons: vi.fn().mockResolvedValue([])
 }
 
 const mockWorktreeOps = {
@@ -57,6 +59,17 @@ const mockWorktreeOps = {
   branchExists: vi.fn()
 }
 
+const mockConnectionOps = {
+  removeWorktreeFromAll: vi.fn().mockResolvedValue({ success: true }),
+  getAll: vi.fn().mockResolvedValue({ success: true, connections: [] })
+}
+
+const mockKanban = {
+  ticket: {
+    detachWorktree: vi.fn().mockResolvedValue(0)
+  }
+}
+
 // Setup window mocks
 beforeEach(() => {
   // @ts-expect-error - Mock window.db
@@ -65,6 +78,10 @@ beforeEach(() => {
   window.projectOps = mockProjectOps
   // @ts-expect-error - Mock window.worktreeOps
   window.worktreeOps = mockWorktreeOps
+  // @ts-expect-error - Mock window.connectionOps
+  window.connectionOps = mockConnectionOps
+  // @ts-expect-error - Mock window.kanban
+  window.kanban = mockKanban
 
   // Reset all mocks
   vi.clearAllMocks()
@@ -113,6 +130,19 @@ describe('Session 5: Git Worktree Operations', () => {
     branch_name: 'tokyo',
     path: '/Users/test/.hive-worktrees/test-project/tokyo',
     status: 'active',
+    is_default: false,
+    created_at: new Date().toISOString(),
+    last_accessed_at: new Date().toISOString()
+  }
+
+  const defaultWorktree: MockWorktree = {
+    id: 'worktree-default',
+    project_id: 'project-1',
+    name: '(no-worktree)',
+    branch_name: '',
+    path: '/path/to/test-project',
+    status: 'active',
+    is_default: true,
     created_at: new Date().toISOString(),
     last_accessed_at: new Date().toISOString()
   }
@@ -445,10 +475,9 @@ describe('Session 5: Git Worktree Operations', () => {
     )
   })
 
-  test('Worktree store: archiveWorktree success', async () => {
-    // Setup initial state with a worktree
+  test('Worktree store: archiveWorktree selects default worktree when no other worktrees remain', async () => {
     useWorktreeStore.setState({
-      worktreesByProject: new Map([['project-1', [mockWorktree]]]),
+      worktreesByProject: new Map([['project-1', [mockWorktree, defaultWorktree]]]),
       selectedWorktreeId: mockWorktree.id
     })
 
@@ -464,8 +493,125 @@ describe('Session 5: Git Worktree Operations', () => {
       )
 
     expect(result.success).toBe(true)
-    expect(useWorktreeStore.getState().worktreesByProject.get('project-1')).toHaveLength(0)
-    expect(useWorktreeStore.getState().selectedWorktreeId).toBeNull()
+    expect(useWorktreeStore.getState().worktreesByProject.get('project-1')).toHaveLength(1)
+    expect(useWorktreeStore.getState().worktreesByProject.get('project-1')?.[0]?.id).toBe(
+      defaultWorktree.id
+    )
+    expect(useWorktreeStore.getState().selectedWorktreeId).toBe(defaultWorktree.id)
+  })
+
+  test('Worktree store: archiveWorktree selects top remaining non-default worktree', async () => {
+    const secondWorktree: MockWorktree = {
+      id: 'worktree-2',
+      project_id: 'project-1',
+      name: 'paris',
+      branch_name: 'paris',
+      path: '/Users/test/.hive-worktrees/test-project/paris',
+      status: 'active',
+      is_default: false,
+      created_at: new Date().toISOString(),
+      last_accessed_at: new Date().toISOString()
+    }
+
+    useWorktreeStore.setState({
+      worktreesByProject: new Map([['project-1', [mockWorktree, secondWorktree, defaultWorktree]]]),
+      selectedWorktreeId: mockWorktree.id
+    })
+
+    mockWorktreeOps.delete.mockResolvedValue({ success: true })
+
+    const result = await useWorktreeStore
+      .getState()
+      .archiveWorktree(
+        'worktree-1',
+        '/Users/test/.hive-worktrees/test-project/tokyo',
+        'tokyo',
+        '/path/to/test-project'
+      )
+
+    expect(result.success).toBe(true)
+    expect(useWorktreeStore.getState().selectedWorktreeId).toBe(secondWorktree.id)
+  })
+
+  test('Worktree store: archiveWorktree respects custom ordering when selecting fallback', async () => {
+    const secondWorktree: MockWorktree = {
+      id: 'worktree-2',
+      project_id: 'project-1',
+      name: 'paris',
+      branch_name: 'paris',
+      path: '/Users/test/.hive-worktrees/test-project/paris',
+      status: 'active',
+      is_default: false,
+      created_at: new Date().toISOString(),
+      last_accessed_at: new Date().toISOString()
+    }
+
+    const thirdWorktree: MockWorktree = {
+      id: 'worktree-3',
+      project_id: 'project-1',
+      name: 'oslo',
+      branch_name: 'oslo',
+      path: '/Users/test/.hive-worktrees/test-project/oslo',
+      status: 'active',
+      is_default: false,
+      created_at: new Date().toISOString(),
+      last_accessed_at: new Date().toISOString()
+    }
+
+    useWorktreeStore.setState({
+      worktreesByProject: new Map([
+        ['project-1', [mockWorktree, secondWorktree, thirdWorktree, defaultWorktree]]
+      ]),
+      worktreeOrderByProject: new Map([['project-1', ['worktree-3', 'worktree-2', 'worktree-1']]]),
+      selectedWorktreeId: mockWorktree.id
+    })
+
+    mockWorktreeOps.delete.mockResolvedValue({ success: true })
+
+    const result = await useWorktreeStore
+      .getState()
+      .archiveWorktree(
+        'worktree-1',
+        '/Users/test/.hive-worktrees/test-project/tokyo',
+        'tokyo',
+        '/path/to/test-project'
+      )
+
+    expect(result.success).toBe(true)
+    expect(useWorktreeStore.getState().selectedWorktreeId).toBe(thirdWorktree.id)
+  })
+
+  test('Worktree store: archiveWorktree keeps current selection when another worktree is archived', async () => {
+    const secondWorktree: MockWorktree = {
+      id: 'worktree-2',
+      project_id: 'project-1',
+      name: 'paris',
+      branch_name: 'paris',
+      path: '/Users/test/.hive-worktrees/test-project/paris',
+      status: 'active',
+      is_default: false,
+      created_at: new Date().toISOString(),
+      last_accessed_at: new Date().toISOString()
+    }
+
+    useWorktreeStore.setState({
+      worktreesByProject: new Map([['project-1', [mockWorktree, secondWorktree, defaultWorktree]]]),
+      selectedWorktreeId: secondWorktree.id
+    })
+
+    mockWorktreeOps.delete.mockResolvedValue({ success: true })
+
+    const result = await useWorktreeStore
+      .getState()
+      .archiveWorktree(
+        'worktree-1',
+        '/Users/test/.hive-worktrees/test-project/tokyo',
+        'tokyo',
+        '/path/to/test-project'
+      )
+
+    expect(result.success).toBe(true)
+    expect(useWorktreeStore.getState().selectedWorktreeId).toBe(secondWorktree.id)
   })
 
   test('Worktree store: unbranchWorktree success', async () => {

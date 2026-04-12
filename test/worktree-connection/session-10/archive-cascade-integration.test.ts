@@ -577,6 +577,19 @@ describe('Session 10: Archive Cascade & Integration', () => {
       expect(connections[0].members).toHaveLength(1)
     })
 
+    test('archiving the selected worktree reselects the project default worktree', async () => {
+      useWorktreeStore.setState({ selectedWorktreeId: 'wt-1' })
+
+      await act(async () => {
+        const result = await useWorktreeStore
+          .getState()
+          .archiveWorktree('wt-1', '/repos/frontend/city-one', 'feat/auth', '/repos/frontend')
+        expect(result?.success).toBe(true)
+      })
+
+      expect(useWorktreeStore.getState().selectedWorktreeId).toBe('wt-default')
+    })
+
     test('archiving both members deletes the connection entirely', async () => {
       useConnectionStore.setState({ connections: [makeConnection()] })
 
