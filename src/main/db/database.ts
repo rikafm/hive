@@ -1976,6 +1976,11 @@ export class DatabaseService {
     dependentId: string,
     blockerId: string
   ): { success: boolean; error?: string } {
+    // Fix 1: Self-dependency check (CRITICAL)
+    if (dependentId === blockerId) {
+      return { success: false, error: 'A ticket cannot depend on itself' }
+    }
+
     return this.transaction(() => {
       const db = this.getDb()
 
@@ -1987,8 +1992,9 @@ export class DatabaseService {
         .prepare('SELECT project_id FROM kanban_tickets WHERE id = ?')
         .get(blockerId) as { project_id: string } | undefined
 
+      // Fix 3: Separate error messages for non-existent tickets vs same project
       if (!dependentTicket || !blockerTicket) {
-        return { success: false, error: 'Tickets must be in the same project' }
+        return { success: false, error: 'One or both tickets do not exist' }
       }
       if (dependentTicket.project_id !== blockerTicket.project_id) {
         return { success: false, error: 'Tickets must be in the same project' }
@@ -2017,6 +2023,14 @@ export class DatabaseService {
             queue.push(row.dependent_id)
           }
         }
+      }
+
+      // Fix 2: Check for existing dependency
+      const existing = db.prepare(
+        'SELECT 1 FROM ticket_dependencies WHERE dependent_id = ? AND blocker_id = ?'
+      ).get(dependentId, blockerId)
+      if (existing) {
+        return { success: true } // Idempotent - already exists
       }
 
       // Safe to insert
