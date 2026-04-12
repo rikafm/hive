@@ -54,6 +54,8 @@ interface WorktreePickerModalProps {
   preAssignOnly?: boolean
   /** When set, operates in connection mode — no worktree selection, uses connection path */
   connectionId?: string
+  /** When true, serializes config as JSON on the ticket instead of creating a session */
+  saveConfigOnly?: boolean
 }
 
 /** In-memory: last-chosen source branch per project (resets on app restart) */
@@ -112,7 +114,8 @@ export function WorktreePickerModal({
   onOpenChange,
   onSendComplete,
   preAssignOnly = false,
-  connectionId
+  connectionId,
+  saveConfigOnly = false
 }: WorktreePickerModalProps) {
   const isConnectionMode = !!connectionId
   const [mode, setMode] = useState<PickerMode>('build')
@@ -431,6 +434,38 @@ export function WorktreePickerModal({
     try {
       let worktreeId = selectedWorktreeId
 
+      // ── Save config only path: serialize config, don't create session ─
+      if (saveConfigOnly) {
+        const pendingConfig = {
+          worktree: isNewWorktree
+            ? { type: 'new' as const, sourceBranch: sourceBranch ?? defaultBranchName }
+            : { type: 'existing' as const, worktreeId: worktreeId! },
+          prompt: promptText.trim() || buildPrompt(mode, ticket),
+          mode,
+          model: selectedModel ?? null,
+          sdk: agentSdk,
+          codexFastMode
+        }
+
+        const sortOrder = useKanbanStore.getState().computeSortOrder(
+          useKanbanStore.getState().getTicketsByColumn(projectId, 'in_progress'),
+          0
+        )
+
+        await updateTicket(ticket.id, projectId, {
+          pending_launch_config: JSON.stringify(pendingConfig),
+          column: 'in_progress',
+          sort_order: sortOrder,
+          mode
+        })
+
+        onSendComplete?.()
+        onOpenChange(false)
+        toast.success('Launch config saved — will auto-launch when dependencies resolve')
+        setIsSending(false)
+        return
+      }
+
       // ── Pre-assign path: only set worktree_id, no session ────────
       if (preAssignOnly) {
         // Create new worktree if needed
@@ -629,6 +664,7 @@ export function WorktreePickerModal({
     onSendComplete,
     onOpenChange,
     preAssignOnly,
+    saveConfigOnly,
     selectedModel,
     autoResolvedModel,
     codexFastMode,
@@ -649,7 +685,7 @@ export function WorktreePickerModal({
       >
         <DialogHeader className="space-y-2.5 pb-1">
           <DialogTitle className="text-base">
-            {preAssignOnly ? 'Assign Worktree' : 'Start Session'}
+            {saveConfigOnly ? 'Pre-configure Launch' : preAssignOnly ? 'Assign Worktree' : 'Start Session'}
           </DialogTitle>
           <DialogDescription>
             {preAssignOnly ? 'Pre-assign a worktree to' : isConnectionMode ? 'Start a session for' : 'Pick a worktree for'}{' '}
@@ -981,6 +1017,11 @@ export function WorktreePickerModal({
               <>
                 <GitBranch className="h-3.5 w-3.5" />
                 {isSending ? 'Assigning...' : 'Assign'}
+              </>
+            ) : saveConfigOnly ? (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                {isSending ? 'Saving...' : 'Save & Queue'}
               </>
             ) : (
               <>
