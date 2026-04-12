@@ -156,6 +156,7 @@ export interface CodexManagerEvent {
   requestId?: string
   textDelta?: string
   payload?: unknown
+  childThreadId?: string
 }
 
 export interface CodexAppServerManagerEvents {
@@ -974,20 +975,6 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     context: CodexSessionContext,
     notification: ServerNotification
   ): void {
-    // DEBUG: Log all server notifications to discover title events
-    if (
-      notification.method !== 'item/agentMessage/delta' &&
-      notification.method !== 'item/reasoning/textDelta'
-    ) {
-      log.info('DEBUG handleServerNotification: received', {
-        method: notification.method,
-        paramsKeys: notification.params
-          ? Object.keys(notification.params as Record<string, unknown>)
-          : [],
-        paramsSnapshot: toJsonSnapshot(notification.params, 500)
-      })
-    }
-
     const route = this.readRouteFields(notification.params)
 
     // Track collab subagent spawns (must run before child detection)
@@ -1008,6 +995,8 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
         ? asString(asObject(notification.params)?.delta)
         : undefined
 
+    const providerConversationId = this.readProviderConversationId(notification.params)
+
     // Emit event — child events get parent's turnId for proper attribution
     this.emitEvent({
       id: randomUUID(),
@@ -1019,6 +1008,9 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       ...((childParentTurnId ?? route.turnId) ? { turnId: childParentTurnId ?? route.turnId } : {}),
       ...(route.itemId ? { itemId: route.itemId } : {}),
       textDelta,
+      ...(isChildConversation && providerConversationId
+        ? { childThreadId: providerConversationId }
+        : {}),
       payload: notification.params
     })
 
@@ -1052,6 +1044,8 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     // Detect if this request is from a child thread — use parent's turnId for attribution
     const childParentTurnId = this.readChildParentTurnId(context, request.params)
     const effectiveTurnId = childParentTurnId ?? route.turnId
+    const providerConversationId = this.readProviderConversationId(request.params)
+    const isChildConversation = childParentTurnId !== undefined
 
     // Track approval requests
     if (
@@ -1097,6 +1091,9 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       ...(effectiveTurnId ? { turnId: effectiveTurnId } : {}),
       ...(route.itemId ? { itemId: route.itemId } : {}),
       requestId,
+      ...(isChildConversation && providerConversationId
+        ? { childThreadId: providerConversationId }
+        : {}),
       payload: request.params
     })
   }
