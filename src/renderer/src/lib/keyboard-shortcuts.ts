@@ -49,6 +49,13 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
     defaultBinding: { key: 'Tab', modifiers: [] }
   },
   {
+    id: 'session:super-plan-toggle',
+    label: 'Toggle Super Plan',
+    description: 'Toggle super-plan mode (Shift+Tab)',
+    category: 'session',
+    defaultBinding: { key: 'Tab', modifiers: ['shift'] }
+  },
+  {
     id: 'project:run',
     label: 'Run Project',
     description: 'Start or stop the project run script',
