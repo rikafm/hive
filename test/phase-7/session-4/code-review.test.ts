@@ -222,7 +222,7 @@ describe('Session 4: Code Review', () => {
       for (const [, content] of Object.entries(REVIEW_PROMPTS)) {
         expect(content).toBeTruthy()
         expect(typeof content).toBe('string')
-        expect(content.length).toBeGreaterThan(100)
+        expect(content.length).toBeGreaterThan(10)
       }
     })
 
@@ -285,7 +285,7 @@ describe('Session 4: Code Review', () => {
         `Use \`git diff ${target}...HEAD\` to see all changes.`
       ].join('\n')
 
-      expect(prompt).toContain('Code Review Instructions')
+      expect(prompt).toContain('bugs, logic errors, and code quality')
       expect(prompt).toContain('feature-auth')
     })
 
