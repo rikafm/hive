@@ -431,7 +431,13 @@ function BoardChatHeader({
         <Button type="button" variant="ghost" size="icon" onClick={onMinimize} aria-label="Minimize assistant">
           <Minimize2 className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close assistant">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          aria-label="Minimize assistant"
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -1129,10 +1135,6 @@ export function BoardChatDrawer({
     }
   }, [addLocalSystemMessage, handleDiscardConversation, storedScope])
 
-  const handleClose = useCallback(async () => {
-    await handleDiscardConversation()
-  }, [handleDiscardConversation])
-
   const handleSelectModel = useCallback(async (model: SelectedModel) => {
     setSelectedModelOverride(model)
     await handleDiscardConversation({
@@ -1308,9 +1310,7 @@ export function BoardChatDrawer({
             void handleClear()
           }}
           onMinimize={minimizeDrawer}
-          onClose={() => {
-            void handleClose()
-          }}
+          onClose={minimizeDrawer}
         />
 
         {error && (
