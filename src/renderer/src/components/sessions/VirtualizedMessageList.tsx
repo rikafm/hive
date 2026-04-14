@@ -18,7 +18,7 @@ type VirtualItem =
   | { key: string; type: 'retry-banner' }
   | { key: string; type: 'streaming'; message: OpenCodeMessage }
   | { key: string; type: 'typing-indicator' }
-  | { key: string; type: 'queued'; queuedMessage: { id: string; content: string; steered?: boolean } }
+  | { key: string; type: 'queued'; queuedMessage: { id: string; content: string } }
   | { key: string; type: 'completion' }
 
 export interface VirtualizedMessageListProps {
@@ -38,7 +38,7 @@ export interface VirtualizedMessageListProps {
   sessionRetry: { attempt?: number; message?: string } | null
   retrySecondsRemaining: number | null
   hasVisibleWritingCursor: boolean
-  queuedMessages: { id: string; content: string; steered?: boolean }[]
+  queuedMessages: { id: string; content: string }[]
   canSteer: boolean
   onSteerMessage: (messageId: string, content: string) => void | Promise<void>
   steeringMessageId: string | null
@@ -328,7 +328,6 @@ export const VirtualizedMessageList = memo(
             <QueuedMessageBubble
               key={item.queuedMessage.id}
               content={item.queuedMessage.content}
-              steered={item.queuedMessage.steered}
               canSteer={canSteer}
               isLoading={steeringMessageId === item.queuedMessage.id}
               onSteer={() => onSteerMessage(item.queuedMessage.id, item.queuedMessage.content)}

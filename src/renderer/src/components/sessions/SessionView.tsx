@@ -160,6 +160,7 @@ export interface OpenCodeMessage {
   timestamp: string
   /** Interleaved parts for assistant messages with tool calls */
   parts?: StreamingPart[]
+  steered?: boolean
 }
 
 export interface SessionViewState {
@@ -326,12 +327,17 @@ function extractSessionErrorStderr(data: unknown): string | null {
   return asString(nestedData?.stderr) || asString(record.stderr) || null
 }
 
-function createLocalMessage(role: OpenCodeMessage['role'], content: string): OpenCodeMessage {
+function createLocalMessage(
+  role: OpenCodeMessage['role'],
+  content: string,
+  extra?: Partial<Pick<OpenCodeMessage, 'steered'>>
+): OpenCodeMessage {
   return {
     id: `local-${crypto.randomUUID()}`,
     role,
     content,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    ...extra
   }
 }
 
@@ -480,7 +486,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       id: string
       content: string
       timestamp: number
-      steered?: boolean
     }>
   >([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -596,30 +601,19 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
   useEffect(() => {
     setQueuedMessages((prev) => {
-      // Preserve messages that have been steered (they were already removed from the follow-up queue)
-      const steered = prev.filter((msg) => msg.steered)
-
-      // Derive non-steered entries from the follow-up queue
-      const prevNonSteered = prev.filter((msg) => !msg.steered)
-      const sameLength = prevNonSteered.length === persistedFollowUpMessages.length
+      const sameLength = prev.length === persistedFollowUpMessages.length
       const sameContent =
-        sameLength &&
-        prevNonSteered.every((entry, index) => entry.content === persistedFollowUpMessages[index])
+        sameLength && prev.every((entry, index) => entry.content === persistedFollowUpMessages[index])
+      if (sameContent) return prev
 
-      if (sameContent && steered.length === prev.filter((msg) => msg.steered).length) {
-        return prev
-      }
-
-      const nonSteered = persistedFollowUpMessages.map((content, index) => {
-        const existing = prevNonSteered.find((p) => p.content === content)
+      return persistedFollowUpMessages.map((content, index) => {
+        const existing = prev.find((p) => p.content === content)
         return {
           id: existing?.id ?? crypto.randomUUID(),
           content,
           timestamp: existing?.timestamp ?? Date.now() + index
         }
       })
-
-      return [...steered, ...nonSteered]
     })
   }, [persistedFollowUpMessages])
 
@@ -3876,9 +3870,8 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       try {
         const result = await window.opencodeOps?.steer?.(worktreePath, opencodeSessionId, content)
         if (result?.success) {
-          setQueuedMessages((prev) =>
-            prev.map((msg) => (msg.id === messageId ? { ...msg, steered: true } : msg))
-          )
+          setQueuedMessages((prev) => prev.filter((msg) => msg.id !== messageId))
+          setMessages((prev) => [...prev, createLocalMessage('user', content, { steered: true })])
           // Remove the steered message from the follow-up queue by content
           const currentFollowUps = useSessionStore.getState().pendingFollowUpMessages.get(sessionId) ?? []
           const indexToRemove = currentFollowUps.indexOf(content)
