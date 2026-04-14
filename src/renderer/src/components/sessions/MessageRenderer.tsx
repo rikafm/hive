@@ -29,7 +29,8 @@ function skipAttachments(content: string): { prefix: string; remaining: string }
     /<data-attachment[\s\S]*?<\/data-attachment>/,
     /<attached_files>[\s\S]*?<\/attached_files>/,
     /<ticket[\s\S]*?<\/ticket>/,
-    /<pr-comment[\s\S]*?<\/pr-comment>/
+    /<pr-comment[\s\S]*?<\/pr-comment>/,
+    /<diff-comments>[\s\S]*?<\/diff-comments>/
   ]
 
   let changed = true
