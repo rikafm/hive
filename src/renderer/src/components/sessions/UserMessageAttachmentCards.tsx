@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react'
-import { KanbanSquare, FileText, X } from 'lucide-react'
+import { KanbanSquare, FileText, MessageSquareText, X } from 'lucide-react'
 import { ProviderIcon } from '@/components/ui/provider-icon'
-import type { ParsedTicket, ParsedPrComment, ParsedFile, ParsedDataAttachment } from '@/lib/parse-user-message-attachments'
+import type { ParsedTicket, ParsedPrComment, ParsedFile, ParsedDataAttachment, ParsedDiffComment } from '@/lib/parse-user-message-attachments'
 
 interface UserMessageAttachmentCardsProps {
   tickets: ParsedTicket[]
   prComments: ParsedPrComment[]
   files: ParsedFile[]
   dataAttachments: ParsedDataAttachment[]
+  diffComments: ParsedDiffComment[]
 }
 
 export function UserMessageAttachmentCards({
   tickets,
   prComments,
   files,
-  dataAttachments
+  dataAttachments,
+  diffComments
 }: UserMessageAttachmentCardsProps): React.JSX.Element | null {
   const [expandedImage, setExpandedImage] = useState<{ dataUrl: string; name: string } | null>(null)
 
@@ -32,7 +34,7 @@ export function UserMessageAttachmentCards({
     return () => window.removeEventListener('keydown', handleEscape)
   }, [expandedImage])
 
-  if (tickets.length === 0 && prComments.length === 0 && files.length === 0 && dataAttachments.length === 0) return null
+  if (tickets.length === 0 && prComments.length === 0 && files.length === 0 && dataAttachments.length === 0 && diffComments.length === 0) return null
 
   return (
     <>
@@ -80,6 +82,37 @@ export function UserMessageAttachmentCards({
                 data-testid="parsed-pr-comment-body"
               >
                 {c.body.length > 80 ? c.body.slice(0, 80) + '...' : c.body}
+              </span>
+            )}
+          </div>
+        )
+      })}
+
+      {diffComments.map((dc, i) => {
+        const fileName = dc.file.split('/').pop() ?? dc.file
+        const bodyPreview = dc.body.length > 80 ? dc.body.slice(0, 80) + '...' : dc.body
+        return (
+          <div
+            key={`diff-comment-${i}`}
+            className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-background border border-border text-sm max-w-[400px] min-w-[220px]"
+            data-testid="parsed-diff-comment-card"
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquareText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="font-medium text-foreground truncate">{fileName}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">:{dc.lines}</span>
+              {dc.outdated && (
+                <span className="text-xs text-amber-500">outdated</span>
+              )}
+            </div>
+            {dc.body && (
+              <span
+                className="text-xs text-muted-foreground line-clamp-2"
+                data-testid="parsed-diff-comment-body"
+              >
+                {bodyPreview}
               </span>
             )}
           </div>
