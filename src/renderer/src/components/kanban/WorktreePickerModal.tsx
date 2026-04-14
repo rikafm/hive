@@ -698,7 +698,7 @@ export function WorktreePickerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-testid="worktree-picker-modal"
-        className="sm:max-w-[520px]"
+        className="sm:max-w-[520px] overflow-visible"
         onKeyDown={handleKeyDown}
       >
         <DialogHeader className="space-y-2.5 pb-1">
