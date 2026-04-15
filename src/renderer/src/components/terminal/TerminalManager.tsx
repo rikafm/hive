@@ -66,23 +66,26 @@ export function TerminalManager({
     worktreePathsRef.current.set(selectedWorktreeId, worktreePath)
   }
 
-  // Auto-create "Terminal 1" when a worktree is selected and has no tabs
+  // Auto-create "Terminal 1" when a worktree is selected and has no tabs.
+  // Read tabs via getState() to avoid re-triggering on every tab state change.
   useEffect(() => {
     if (selectedWorktreeId && worktreePath && isVisible) {
-      const tabs = tabsByWorktree.get(selectedWorktreeId)
-      if (!tabs || tabs.length === 0) {
+      const tabs = useTerminalTabStore.getState().getTabs(selectedWorktreeId)
+      if (tabs.length === 0) {
         createTab(selectedWorktreeId)
       }
     }
-  }, [selectedWorktreeId, worktreePath, isVisible, tabsByWorktree, createTab])
+  }, [selectedWorktreeId, worktreePath, isVisible, createTab])
 
   // When backend setting changes, tear down all active terminals so they get re-created
-  // with the new backend on next visibility
+  // with the new backend on next visibility.
+  // Read tabs via getState() — this effect responds to backend changes, not tab changes.
   useEffect(() => {
     if (prevBackendRef.current !== embeddedTerminalBackend) {
       prevBackendRef.current = embeddedTerminalBackend
       // Destroy all PTYs across all worktrees by tab ID
-      for (const [, tabs] of tabsByWorktree) {
+      const currentTabs = useTerminalTabStore.getState().tabsByWorktree
+      for (const [, tabs] of currentTabs) {
         for (const tab of tabs) {
           destroyTerminal(tab.id)
         }
@@ -90,9 +93,11 @@ export function TerminalManager({
       removeAllTabs()
       terminalRefsMap.current.clear()
     }
-  }, [embeddedTerminalBackend, destroyTerminal, tabsByWorktree, removeAllTabs])
+  }, [embeddedTerminalBackend, destroyTerminal, removeAllTabs])
 
-  // Clean up terminals for worktrees that no longer exist
+  // Clean up terminals for worktrees that no longer exist.
+  // Only responds to worktreesByProject changes (actual worktree addition/removal),
+  // NOT to tab state changes. Reads tabs via getState() to avoid feedback loop with auto-create.
   useEffect(() => {
     const existingWorktreeIds = new Set<string>()
     for (const [, worktrees] of worktreesByProject) {
@@ -101,7 +106,8 @@ export function TerminalManager({
       }
     }
 
-    for (const [worktreeId, tabs] of tabsByWorktree) {
+    const currentTabs = useTerminalTabStore.getState().tabsByWorktree
+    for (const [worktreeId, tabs] of currentTabs) {
       if (!existingWorktreeIds.has(worktreeId)) {
         // Worktree was deleted/archived — destroy all its tab PTYs
         for (const tab of tabs) {
@@ -112,7 +118,7 @@ export function TerminalManager({
         worktreePathsRef.current.delete(worktreeId)
       }
     }
-  }, [worktreesByProject, destroyTerminal, tabsByWorktree, removeWorktree])
+  }, [worktreesByProject, destroyTerminal, removeWorktree])
 
   // Collect ALL tabs across ALL worktrees for rendering
   const allTabs = Array.from(tabsByWorktree.values()).flat()
